@@ -1,0 +1,13 @@
+{
+  "files": {
+    "main.css": "/pickleballapp/static/css/main.63a71df9.css",
+    "main.js": "/pickleballapp/static/js/main.51101720.js",
+    "index.html": "/pickleballapp/index.html",
+    "main.63a71df9.css.map": "/pickleballapp/static/css/main.63a71df9.css.map",
+    "main.51101720.js.map": "/pickleballapp/static/js/main.51101720.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.63a71df9.css",
+    "static/js/main.51101720.js"
+  ]
+}

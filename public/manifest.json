@@ -1,0 +1,9 @@
+{
+  "short_name": "Pickleball",
+  "name": "Pickleball Match Organizer",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#f4f8ef",
+  "theme_color": "#3f7d32",
+  "description": "Organize pickleball open play and tournaments offline."
+}
