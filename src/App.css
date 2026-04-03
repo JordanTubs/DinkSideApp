@@ -445,6 +445,18 @@ input {
   color: var(--muted);
 }
 
+.court-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.small-badge {
+  padding: 6px 10px;
+  font-size: 0.8rem;
+}
+
 .team-vs-block {
   display: flex;
   flex-direction: column;

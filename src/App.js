@@ -333,6 +333,115 @@ function App() {
     return createdMatches;
   }
 
+  function getTeamPlayerNames(teamName) {
+    return teamName.split(' & ').map((name) => name.trim());
+  }
+
+  function getBusyOpenPlayPlayers(matches, excludedMatchId) {
+    return matches
+      .filter((match) => !match.played && match.id !== excludedMatchId)
+      .flatMap((match) => [
+        ...getTeamPlayerNames(match.teamA),
+        ...getTeamPlayerNames(match.teamB),
+      ]);
+  }
+
+  function updateOpenPlayRoundTimeline(roundList, updatedMatch) {
+    const roundExists = roundList.some((round) => round.round === updatedMatch.round);
+
+    if (!roundExists) {
+      return [
+        {
+          round: updatedMatch.round,
+          matches: [updatedMatch],
+          waitingPlayers: [],
+        },
+        ...roundList,
+      ];
+    }
+
+    return roundList.map((round) => {
+      if (round.round !== updatedMatch.round) {
+        return round;
+      }
+
+      const alreadyTracked = round.matches.some((match) => match.id === updatedMatch.id);
+
+      if (alreadyTracked) {
+        return {
+          ...round,
+          matches: round.matches.map((match) =>
+            match.id === updatedMatch.id ? updatedMatch : match
+          ),
+        };
+      }
+
+      return {
+        ...round,
+        matches: [...round.matches, updatedMatch],
+      };
+    });
+  }
+
+  function getOpenPlayWaitingNames(matches) {
+    const activePlayerNames = new Set(
+      matches
+        .filter((match) => !match.played)
+        .flatMap((match) => [
+          ...getTeamPlayerNames(match.teamA),
+          ...getTeamPlayerNames(match.teamB),
+        ])
+    );
+
+    return openPlay.players
+      .filter((player) => !activePlayerNames.has(player.name))
+      .map((player) => player.name);
+  }
+
+  function createRollingOpenPlayMatch(courtNumber, excludedMatchId) {
+    const busyPlayerNames = new Set(
+      getBusyOpenPlayPlayers(openPlay.currentMatches, excludedMatchId)
+    );
+
+    const availablePlayers = shuffleArray(
+      openPlay.players.filter((player) => !busyPlayerNames.has(player.name))
+    ).sort((a, b) => {
+      if (a.playCount !== b.playCount) {
+        return a.playCount - b.playCount;
+      }
+
+      if (b.waitCount !== a.waitCount) {
+        return b.waitCount - a.waitCount;
+      }
+
+      return a.lastRoundPlayed - b.lastRoundPlayed;
+    });
+
+    if (availablePlayers.length < 4) {
+      return null;
+    }
+
+    const chosenPlayers = availablePlayers.slice(0, 4);
+    const waitingPlayers = availablePlayers.slice(4);
+    const nextRoundNumber = openPlay.currentRound + 1;
+    const createdTeams = buildOpenPlayTeams(chosenPlayers);
+    const createdMatch = buildOpenPlayMatches(createdTeams, 1, nextRoundNumber)[0];
+
+    if (!createdMatch) {
+      return null;
+    }
+
+    return {
+      match: {
+        ...createdMatch,
+        court: courtNumber,
+      },
+      chosenPlayers,
+      waitingPlayers,
+      nextRoundNumber,
+    };
+  }
+
   function generateOpenPlayRound() {
     if (
       openPlay.currentMatches.length > 0 &&
@@ -456,7 +565,7 @@ function App() {
       return;
     }
 
-    const updatedCurrentMatches = openPlay.currentMatches.map((match) =>
+    let updatedCurrentMatches = openPlay.currentMatches.map((match) =>
       match.id === matchId
         ? {
             ...match,
@@ -466,7 +575,7 @@ function App() {
         : match
     );
 
-    const updatedRounds = openPlay.rounds.map((round) => ({
+    let updatedRounds = openPlay.rounds.map((round) => ({
       ...round,
       matches: round.matches.map((match) =>
         match.id === matchId
@@ -492,11 +601,55 @@ function App() {
       createdAt: new Date().toLocaleString(),
     };
 
+    const rollingMatchData = createRollingOpenPlayMatch(selectedMatch.court, matchId);
+    let updatedPlayers = openPlay.players;
+    let updatedCurrentRound = openPlay.currentRound;
+
+    if (rollingMatchData) {
+      updatedCurrentMatches = updatedCurrentMatches.map((match) =>
+        match.id === matchId ? rollingMatchData.match : match
+      );
+
+      updatedRounds = updateOpenPlayRoundTimeline(updatedRounds, rollingMatchData.match);
+      updatedCurrentRound = rollingMatchData.nextRoundNumber;
+
+      updatedPlayers = openPlay.players.map((player) => {
+        const isChosen = rollingMatchData.chosenPlayers.some(
+          (chosenPlayer) => chosenPlayer.id === player.id
+        );
+        const isWaiting = rollingMatchData.waitingPlayers.some(
+          (waitingPlayer) => waitingPlayer.id === player.id
+        );
+
+        if (isChosen) {
+          return {
+            ...player,
+            playCount: player.playCount + 1,
+            lastRoundPlayed: rollingMatchData.nextRoundNumber,
+          };
+        }
+
+        if (isWaiting) {
+          return {
+            ...player,
+            waitCount: player.waitCount + 1,
+          };
+        }
+
+        return player;
+      });
+    }
+
+    const nextWaitingPlayers = getOpenPlayWaitingNames(updatedCurrentMatches);
+
     setOpenPlay((previous) => ({
       ...previous,
       currentMatches: updatedCurrentMatches,
       rounds: updatedRounds,
       results: [resultEntry, ...previous.results],
+      players: updatedPlayers,
+      currentRound: updatedCurrentRound,
+      waitingPlayers: nextWaitingPlayers,
     }));
 
     addHistoryItem(
@@ -504,6 +657,14 @@ function App() {
       `Court ${selectedMatch.court} winner`,
       `${winnerName} defeated ${loserName} in Round ${selectedMatch.round}`
     );
+
+    if (rollingMatchData) {
+      addHistoryItem(
+        'Open Play',
+        `Court ${selectedMatch.court} next game ready`,
+        `${rollingMatchData.match.teamA} vs ${rollingMatchData.match.teamB} in Round ${rollingMatchData.match.round}`
+      );
+    }
   }
 
   function createTournamentTeams(autoShuffle = false) {
@@ -1248,14 +1409,17 @@ function App() {
             {openPlay.currentMatches.length > 0 && (
               <div className="glass-card">
                 <div className="section-header with-badge">
-                  <span>Current Round</span>
-                  <span className="count-badge">Round {openPlay.currentRound}</span>
+                  <span>Active Courts</span>
+                  <span className="count-badge">Latest Round {openPlay.currentRound}</span>
                 </div>
 
                 <div className="court-grid">
                   {openPlay.currentMatches.map((match) => (
                     <div className="court-match-card" key={match.id}>
-                      <div className="court-label">COURT {match.court}</div>
+                      <div className="court-card-top">
+                        <div className="court-label">COURT {match.court}</div>
+                        <div className="count-badge small-badge">R{match.round}</div>
+                      </div>
                       <div className="team-vs-block">
                         <div className={`team-chip ${match.winner === match.teamA ? 'selected-team' : ''}`}>
                           {match.teamA}
