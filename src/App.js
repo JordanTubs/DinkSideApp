@@ -398,7 +398,42 @@ function App() {
       .map((player) => player.name);
   }
 
-  function createRollingOpenPlayMatch(courtNumber, excludedMatchId) {
+  function createRotatedCourtMatch(previousMatch, roundNumber, courtNumber) {
+    const teamAPlayers = getTeamPlayerNames(previousMatch.teamA);
+    const teamBPlayers = getTeamPlayerNames(previousMatch.teamB);
+
+    const firstOption = {
+      teamA: `${teamAPlayers[0]} & ${teamBPlayers[0]}`,
+      teamB: `${teamAPlayers[1]} & ${teamBPlayers[1]}`,
+    };
+
+    if (
+      sortNames(firstOption.teamA, firstOption.teamB) !==
+      sortNames(previousMatch.teamA, previousMatch.teamB)
+    ) {
+      return {
+        id: createId('open-match'),
+        round: roundNumber,
+        court: courtNumber,
+        teamA: firstOption.teamA,
+        teamB: firstOption.teamB,
+        winner: '',
+        played: false,
+      };
+    }
+
+    return {
+      id: createId('open-match'),
+      round: roundNumber,
+      court: courtNumber,
+      teamA: `${teamAPlayers[0]} & ${teamBPlayers[1]}`,
+      teamB: `${teamAPlayers[1]} & ${teamBPlayers[0]}`,
+      winner: '',
+      played: false,
+    };
+  }
+
+  function createRollingOpenPlayMatch(courtNumber, excludedMatchId, previousMatch) {
     const busyPlayerNames = new Set(
       getBusyOpenPlayPlayers(openPlay.currentMatches, excludedMatchId)
     );
@@ -424,8 +459,23 @@ function App() {
     const chosenPlayers = availablePlayers.slice(0, 4);
     const waitingPlayers = availablePlayers.slice(4);
     const nextRoundNumber = openPlay.currentRound + 1;
-    const createdTeams = buildOpenPlayTeams(chosenPlayers);
-    const createdMatch = buildOpenPlayMatches(createdTeams, 1, nextRoundNumber)[0];
+    const previousPlayers = [
+      ...getTeamPlayerNames(previousMatch.teamA),
+      ...getTeamPlayerNames(previousMatch.teamB),
+    ].sort();
+    const chosenPlayerNames = chosenPlayers.map((player) => player.name).sort();
+    const usingSameFourPlayers =
+      chosenPlayers.length === 4 &&
+      previousPlayers.length === 4 &&
+      previousPlayers.every((name, index) => name === chosenPlayerNames[index]);
+    let createdMatch;
+
+    if (usingSameFourPlayers) {
+      createdMatch = createRotatedCourtMatch(previousMatch, nextRoundNumber, courtNumber);
+    } else {
+      const createdTeams = buildOpenPlayTeams(chosenPlayers);
+      createdMatch = buildOpenPlayMatches(createdTeams, 1, nextRoundNumber)[0];
+    }
 
     if (!createdMatch) {
       return null;
@@ -601,7 +651,11 @@ function App() {
       createdAt: new Date().toLocaleString(),
     };
 
-    const rollingMatchData = createRollingOpenPlayMatch(selectedMatch.court, matchId);
+    const rollingMatchData = createRollingOpenPlayMatch(
+      selectedMatch.court,
+      matchId,
+      selectedMatch
+    );
     let updatedPlayers = openPlay.players;
     let updatedCurrentRound = openPlay.currentRound;
 
