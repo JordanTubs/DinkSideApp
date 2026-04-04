@@ -77,10 +77,15 @@ function App() {
     teamAScore: 0,
     teamBScore: 0,
     servingTeam: 'A',
+    serverNumber: 1,
     winner: '',
+    matchStatus: 'Ready',
     source: null,
     returnPhase: 'menu',
     savedMatches: [],
+    historyOpen: false,
+    undoStack: [],
+    showResetConfirm: false,
   };
 
   const [phase, setPhase] = useState('menu');
@@ -1224,35 +1229,119 @@ function App() {
     setPhase('scoreboard');
   }
 
-  function updateScoreboardScore(side, amount) {
+  function getScoreboardWinner(teamAScore, teamBScore, teamAName, teamBName) {
+    if (teamAScore >= 11 || teamBScore >= 11) {
+      if (Math.abs(teamAScore - teamBScore) >= 2) {
+        return teamAScore > teamBScore ? teamAName : teamBName;
+      }
+    }
+
+    return '';
+  }
+
+  function getScoreboardMatchStatus(teamAScore, teamBScore, winnerName) {
+    if (winnerName) {
+      return 'Game Finished';
+    }
+
+    if (teamAScore === 0 && teamBScore === 0) {
+      return 'Ready';
+    }
+
+    if (teamAScore >= 10 && teamBScore >= 10) {
+      return 'Win by 2';
+    }
+
+    if (teamAScore === 10 || teamBScore === 10) {
+      return 'Game Point';
+    }
+
+    return 'Live Match';
+  }
+
+  function handleScoreboardRally(rallyWinner) {
     setScoreboard((previous) => {
-      const nextTeamAScore =
-        side === 'A'
-          ? Math.max(0, previous.teamAScore + amount)
-          : previous.teamAScore;
-      const nextTeamBScore =
-        side === 'B'
-          ? Math.max(0, previous.teamBScore + amount)
-          : previous.teamBScore;
+      if (previous.winner) {
+        return previous;
+      }
+
+      const snapshot = {
+        teamAScore: previous.teamAScore,
+        teamBScore: previous.teamBScore,
+        servingTeam: previous.servingTeam,
+        serverNumber: previous.serverNumber,
+        winner: previous.winner,
+        matchStatus: previous.matchStatus,
+      };
+
+      let nextTeamAScore = previous.teamAScore;
+      let nextTeamBScore = previous.teamBScore;
+      let nextServingTeam = previous.servingTeam;
+      let nextServerNumber = previous.serverNumber;
+
+      if (rallyWinner === previous.servingTeam) {
+        if (rallyWinner === 'A') {
+          nextTeamAScore += 1;
+        } else {
+          nextTeamBScore += 1;
+        }
+      } else if (previous.serverNumber === 1) {
+        nextServerNumber = 2;
+      } else {
+        nextServingTeam = rallyWinner;
+        nextServerNumber = 1;
+      }
+
+      const winnerName = getScoreboardWinner(
+        nextTeamAScore,
+        nextTeamBScore,
+        previous.teamAName,
+        previous.teamBName
+      );
 
       return {
         ...previous,
         teamAScore: nextTeamAScore,
         teamBScore: nextTeamBScore,
-        winner: '',
+        servingTeam: nextServingTeam,
+        serverNumber: nextServerNumber,
+        winner: winnerName,
+        matchStatus: getScoreboardMatchStatus(
+          nextTeamAScore,
+          nextTeamBScore,
+          winnerName
+        ),
+        undoStack: [...previous.undoStack, snapshot],
+      };
+    });
+  }
+
+  function undoScoreboardRally() {
+    setScoreboard((previous) => {
+      if (previous.undoStack.length === 0) {
+        return previous;
+      }
+
+      const previousState = previous.undoStack[previous.undoStack.length - 1];
+
+      return {
+        ...previous,
+        ...previousState,
+        undoStack: previous.undoStack.slice(0, -1),
       };
     });
   }
 
   function saveScoreboardMatch() {
-    if (scoreboard.teamAScore === scoreboard.teamBScore) {
-      return;
-    }
-
     const winnerName =
-      scoreboard.teamAScore > scoreboard.teamBScore
-        ? scoreboard.teamAName
-        : scoreboard.teamBName;
+      scoreboard.winner ||
+      getScoreboardWinner(
+        scoreboard.teamAScore,
+        scoreboard.teamBScore,
+        scoreboard.teamAName,
+        scoreboard.teamBName
+      ) ||
+      'No winner yet';
     const scoreText = `${scoreboard.teamAScore} - ${scoreboard.teamBScore}`;
     const savedMatch = {
       id: createId('score-match'),
@@ -1260,22 +1349,33 @@ function App() {
       teamB: scoreboard.teamBName,
       scoreText,
       winner: winnerName,
+      servingTeam:
+        scoreboard.servingTeam === 'A'
+          ? scoreboard.teamAName
+          : scoreboard.teamBName,
+      serverNumber: scoreboard.serverNumber,
       createdAt: new Date().toLocaleString(),
     };
 
     setScoreboard((previous) => ({
       ...previous,
       winner: winnerName,
+      matchStatus: 'Saved',
+      historyOpen: true,
       savedMatches: [savedMatch, ...previous.savedMatches],
     }));
 
     addHistoryItem(
       'Scoreboard',
       `${scoreboard.teamAName} vs ${scoreboard.teamBName}`,
-      `${winnerName} won ${scoreText}`
+      `${scoreText} · Serve: ${
+        scoreboard.servingTeam === 'A'
+          ? scoreboard.teamAName
+          : scoreboard.teamBName
+      } · Server ${scoreboard.serverNumber}`
     );
 
-    if (scoreboard.source) {
+    if (scoreboard.source && winnerName !== 'No winner yet') {
       if (scoreboard.source.type === 'openPlay') {
         recordOpenPlayWinner(scoreboard.source.matchId, winnerName);
       }
@@ -1288,12 +1388,42 @@ function App() {
 
   function resetScoreboard() {
     setScoreboard((previous) => ({
+      ...previous,
+      showResetConfirm: true,
+    }));
+  }
+
+  function cancelScoreboardReset() {
+    setScoreboard((previous) => ({
+      ...previous,
+      showResetConfirm: false,
+    }));
+  }
+
+  function confirmScoreboardReset() {
+
+    setScoreboard((previous) => ({
       ...defaultScoreboard,
       teamAName: previous.teamAName,
       teamBName: previous.teamBName,
       source: previous.source,
       returnPhase: previous.returnPhase,
       savedMatches: previous.savedMatches,
+      historyOpen: previous.historyOpen,
+      showResetConfirm: false,
+    }));
+  }
+
+  function toggleManualServe() {
+    setScoreboard((previous) => ({
+      ...previous,
+      servingTeam: previous.servingTeam === 'A' ? 'B' : 'A',
+      serverNumber: 1,
+      matchStatus: getScoreboardMatchStatus(
+        previous.teamAScore,
+        previous.teamBScore,
+        previous.winner
+      ),
     }));
   }
 
@@ -1691,10 +1821,24 @@ function App() {
               <div className="history-stack">
                 {tournament.currentMatches.map((match) => (
                   <div className="tournament-match-card" key={match.id}>
-                    <div className={`tournament-team-row ${match.winner === match.teamA ? 'winner-row' : ''}`}>
+                    <div
+                      className={`tournament-team-row ${
+                        match.winner === match.teamA
+                          ? 'winner-row'
+                          : match.winner
+                          ? 'loser-row'
+                          : ''
+                      }`}
+                    >
                       <span>{match.teamA}</span>
                       <button
-                        className="soft-btn small-soft-btn"
+                        className={`soft-btn small-soft-btn ${
+                          match.winner === match.teamA
+                            ? 'winner-btn'
+                            : match.winner
+                            ? 'loser-btn'
+                            : ''
+                        }`}
                         onClick={() => selectTournamentWinner(match.id, match.teamA)}
                         type="button"
                       >
@@ -1702,10 +1846,24 @@ function App() {
                       </button>
                     </div>
                     <div className="versus-label">VS</div>
-                    <div className={`tournament-team-row ${match.winner === match.teamB ? 'winner-row mint-row' : 'mint-row'}`}>
+                    <div
+                      className={`tournament-team-row ${
+                        match.winner === match.teamB
+                          ? 'winner-row'
+                          : match.winner
+                          ? 'loser-row'
+                          : 'mint-row'
+                      }`}
+                    >
                       <span>{match.teamB}</span>
                       <button
-                        className="soft-btn small-soft-btn"
+                        className={`soft-btn small-soft-btn ${
+                          match.winner === match.teamB
+                            ? 'winner-btn'
+                            : match.winner
+                            ? 'loser-btn'
+                            : ''
+                        }`}
                         onClick={() => selectTournamentWinner(match.id, match.teamB)}
                         type="button"
                       >
@@ -1820,7 +1978,7 @@ function App() {
             <div className="scoreboard-card">
               <div className="live-label">LIVE SCORE</div>
 
-              <div className="scoreboard-name-row">
+              <div className="scoreboard-label-bar">
                 <input
                   className="team-name-input"
                   value={scoreboard.teamAName}
@@ -1831,65 +1989,76 @@ function App() {
                     }))
                   }
                 />
+              </div>
+
+              <div className="serve-center">
                 <button
-                  className={`serve-pill ${scoreboard.servingTeam === 'A' ? 'active-serve' : ''}`}
-                  onClick={() =>
-                    setScoreboard((previous) => ({
-                      ...previous,
-                      servingTeam: previous.servingTeam === 'A' ? 'B' : 'A',
-                    }))
-                  }
+                  className={`serve-pill scoreboard-serve-pill ${
+                    scoreboard.servingTeam === 'A' ? 'active-serve' : 'serve-team-b'
+                  }`}
+                  onClick={toggleManualServe}
                   type="button"
                 >
-                  Serve
+                  Serve: {scoreboard.servingTeam === 'A' ? scoreboard.teamAName : scoreboard.teamBName}
                 </button>
               </div>
 
-              <div className="score-grid">
-                <div className="score-team-card score-a">
+              <div className="scoreboard-status-row">
+                <div className="status-pill">
+                  Serving Team: {scoreboard.servingTeam === 'A' ? scoreboard.teamAName : scoreboard.teamBName}
+                </div>
+                <div className="status-pill muted-status">Server {scoreboard.serverNumber}</div>
+              </div>
+
+              <div className="scoreboard-stack">
+                <div
+                  className={`score-panel ${
+                    scoreboard.servingTeam === 'A' ? 'serving-panel panel-a' : 'panel-a'
+                  }`}
+                >
+                  <div className="score-panel-top">
+                    <div className="score-panel-label">Team A Score</div>
+                    {scoreboard.servingTeam === 'A' && (
+                      <div className="serving-chip">Serving</div>
+                    )}
+                  </div>
                   <div className="big-score">{scoreboard.teamAScore}</div>
-                  <div className="score-actions">
+                  <div className="score-actions score-actions-large">
                     <button
                       className="score-btn"
-                      onClick={() => updateScoreboardScore('A', 1)}
+                      onClick={() => handleScoreboardRally('A')}
                       type="button"
                     >
-                      +
-                    </button>
-                    <button
-                      className="score-btn secondary-score-btn"
-                      onClick={() => updateScoreboardScore('A', -1)}
-                      type="button"
-                    >
-                      -
+                      Team A Wins Rally
                     </button>
                   </div>
                 </div>
 
-                <div className="score-divider">:</div>
-
-                <div className="score-team-card score-b">
+                <div
+                  className={`score-panel ${
+                    scoreboard.servingTeam === 'B' ? 'serving-panel panel-b' : 'panel-b'
+                  }`}
+                >
+                  <div className="score-panel-top">
+                    <div className="score-panel-label">Team B Score</div>
+                    {scoreboard.servingTeam === 'B' && (
+                      <div className="serving-chip">Serving</div>
+                    )}
+                  </div>
                   <div className="big-score">{scoreboard.teamBScore}</div>
-                  <div className="score-actions">
+                  <div className="score-actions score-actions-large">
                     <button
                       className="score-btn mint-btn"
-                      onClick={() => updateScoreboardScore('B', 1)}
+                      onClick={() => handleScoreboardRally('B')}
                       type="button"
                     >
-                      +
-                    </button>
-                    <button
-                      className="score-btn secondary-score-btn"
-                      onClick={() => updateScoreboardScore('B', -1)}
-                      type="button"
-                    >
-                      -
+                      Team B Wins Rally
                     </button>
                   </div>
                 </div>
               </div>
 
-              <div className="scoreboard-name-row">
+              <div className="scoreboard-label-bar">
                 <input
                   className="team-name-input"
                   value={scoreboard.teamBName}
@@ -1902,41 +2071,85 @@ function App() {
                 />
               </div>
 
+              <div className="scoreboard-status-row">
+                <div className="status-pill">{scoreboard.matchStatus}</div>
+                <div className="status-pill muted-status">
+                  {scoreboard.teamAScore}-{scoreboard.teamBScore}
+                </div>
+              </div>
+
               {scoreboard.winner && (
                 <div className="success-box">Winner: {scoreboard.winner}</div>
+              )}
+
+              {scoreboard.showResetConfirm && (
+                <div className="scoreboard-confirm-card">
+                  <div className="confirm-title">Reset live score?</div>
+                  <div className="confirm-text">
+                    This will clear both scores and reset the serve back to Team A.
+                  </div>
+                  <div className="button-row confirm-buttons">
+                    <button className="soft-btn" onClick={cancelScoreboardReset} type="button">
+                      Cancel
+                    </button>
+                    <button className="soft-danger-btn" onClick={confirmScoreboardReset} type="button">
+                      Reset
+                    </button>
+                  </div>
+                </div>
               )}
 
               <div className="button-row scoreboard-buttons">
                 <button className="soft-btn" onClick={resetScoreboard} type="button">
                   Reset Score
                 </button>
+                <button className="soft-btn" onClick={undoScoreboardRally} type="button">
+                  Undo
+                </button>
                 <button className="gold-btn" onClick={saveScoreboardMatch} type="button">
                   Save Match
                 </button>
-                <button className="gradient-btn" onClick={() => setPhase('history')} type="button">
+                <button
+                  className="gradient-btn"
+                  onClick={() =>
+                    setScoreboard((previous) => ({
+                      ...previous,
+                      historyOpen: !previous.historyOpen,
+                    }))
+                  }
+                  type="button"
+                >
                   View Match History
                 </button>
               </div>
-            </div>
 
-            <div className="glass-card">
-              <div className="section-header">Saved Scoreboard Matches</div>
-              <div className="history-stack">
-                {scoreboard.savedMatches.length === 0 ? (
-                  <div className="history-card muted-text">No saved scoreboard matches yet.</div>
-                ) : (
-                  scoreboard.savedMatches.map((match) => (
-                    <div className="history-card" key={match.id}>
-                      <div className="history-title">
-                        {match.teamA} vs {match.teamB}
-                      </div>
-                      <div className="history-subtitle">{match.scoreText}</div>
-                      <div className="history-highlight">Winner: {match.winner}</div>
-                      <div className="history-time">{match.createdAt}</div>
-                    </div>
-                  ))
-                )}
-              </div>
+              {scoreboard.historyOpen && (
+                <div className="scoreboard-history-panel">
+                  <div className="section-header">Saved Scoreboard Matches</div>
+                  <div className="history-stack">
+                    {scoreboard.savedMatches.length === 0 ? (
+                      <div className="history-card muted-text">No saved scoreboard matches yet.</div>
+                    ) : (
+                      scoreboard.savedMatches.map((match) => (
+                        <div className="history-card" key={match.id}>
+                          <div className="history-title">
+                            {match.teamA} vs {match.teamB}
+                          </div>
+                          <div className="history-subtitle">
+                            Score: {match.scoreText} · Serve: {match.servingTeam} · Server {match.serverNumber}
+                          </div>
+                          <div className="history-highlight">
+                            {match.winner === 'No winner yet'
+                              ? 'Winner: Not decided'
+                              : `Winner: ${match.winner}`}
+                          </div>
+                          <div className="history-time">{match.createdAt}</div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
