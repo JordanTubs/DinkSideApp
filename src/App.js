@@ -1481,28 +1481,36 @@ function App() {
 
             <div className="menu-stack">
               {renderMenuCard(
-                'OP',
+                <span className="menu-icon-emoji" role="img" aria-label="open play">
+                  🏓
+                </span>,
                 'Open Play',
                 'Randomize players & courts',
                 () => setPhase('openPlay'),
                 'open-accent'
               )}
               {renderMenuCard(
-                'TR',
+                <span className="menu-icon-emoji" role="img" aria-label="tournament">
+                  🏆
+                </span>,
                 'Tournament',
                 'Round robin & brackets',
                 () => setPhase('tournamentSetup'),
                 'tournament-accent'
               )}
               {renderMenuCard(
-                'SC',
+                <span className="menu-icon-emoji" role="img" aria-label="scoreboard">
+                  📋
+                </span>,
                 'Scoreboard',
                 'Pickleball match scoring',
                 () => startScoreboardMode(null, null, 'menu'),
                 'scoreboard-accent'
               )}
               {renderMenuCard(
-                'HI',
+                <span className="menu-icon-emoji" role="img" aria-label="match history">
+                  🕘
+                </span>,
                 'Match History',
                 'Open Play, Tournament, Scoreboard',
                 () => setPhase('history'),
