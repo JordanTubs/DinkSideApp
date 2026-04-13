@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import './App.css';
-import logo from "./logo.jpg";
+import logo from './logo.svg';
 
 const STORAGE_KEY = 'dink-side-organizer-state';
 
@@ -1316,6 +1315,47 @@ function App() {
     });
   }
 
+  function adjustScoreboardPoints(team, delta) {
+    setScoreboard((previous) => {
+      const snapshot = {
+        teamAScore: previous.teamAScore,
+        teamBScore: previous.teamBScore,
+        servingTeam: previous.servingTeam,
+        serverNumber: previous.serverNumber,
+        winner: previous.winner,
+        matchStatus: previous.matchStatus,
+      };
+
+      const nextTeamAScore =
+        team === 'A'
+          ? Math.max(0, previous.teamAScore + delta)
+          : previous.teamAScore;
+      const nextTeamBScore =
+        team === 'B'
+          ? Math.max(0, previous.teamBScore + delta)
+          : previous.teamBScore;
+      const winnerName = getScoreboardWinner(
+        nextTeamAScore,
+        nextTeamBScore,
+        previous.teamAName,
+        previous.teamBName
+      );
+
+      return {
+        ...previous,
+        teamAScore: nextTeamAScore,
+        teamBScore: nextTeamBScore,
+        winner: winnerName,
+        matchStatus: getScoreboardMatchStatus(
+          nextTeamAScore,
+          nextTeamBScore,
+          winnerName
+        ),
+        undoStack: [...previous.undoStack, snapshot],
+      };
+    });
+  }
+
   function undoScoreboardRally() {
     setScoreboard((previous) => {
       if (previous.undoStack.length === 0) {
@@ -1474,9 +1514,16 @@ function App() {
         {phase === 'menu' && (
           <div className="screen">
             <div className="hero-card glass-card">
-              <div className="hero-logo"><img src={logo} alt="logo" /></div>
-              <div className="hero-title">DINK SIDE</div>
-              <div className="hero-subtitle">Pickleball Match Organizer</div>
+              <div className="hero-orb hero-orb-left" />
+              <div className="hero-orb hero-orb-right" />
+              <div className="hero-inner">
+                <div className="hero-badge">Pickleball Organizer</div>
+                <div className="hero-logo">
+                  <img src={logo} alt="Dink Side logo" />
+                </div>
+                <div className="hero-title">DINK SIDE</div>
+                <div className="hero-subtitle">Pickleball Match Organizer</div>
+              </div>
             </div>
 
             <div className="menu-stack">
@@ -1518,11 +1565,17 @@ function App() {
               )}
             </div>
 
-            <button className="soft-danger-btn" onClick={resetWholeApp} type="button">
+            <button
+              className="soft-danger-btn"
+              onClick={resetWholeApp}
+              type="button"
+            >
               Reset App
             </button>
 
-            <div className="footer-text">Panabo City · 2026</div>
+            <div className="footer-text">
+              Panabo City · 2026
+            </div>
           </div>
         )}
 
@@ -1986,19 +2039,6 @@ function App() {
             <div className="scoreboard-card">
               <div className="live-label">LIVE SCORE</div>
 
-              <div className="scoreboard-label-bar">
-                <input
-                  className="team-name-input"
-                  value={scoreboard.teamAName}
-                  onChange={(event) =>
-                    setScoreboard((previous) => ({
-                      ...previous,
-                      teamAName: event.target.value,
-                    }))
-                  }
-                />
-              </div>
-
               <div className="serve-center">
                 <button
                   className={`serve-pill scoreboard-serve-pill ${
@@ -2025,12 +2065,38 @@ function App() {
                   }`}
                 >
                   <div className="score-panel-top">
-                    <div className="score-panel-label">Team A Score</div>
+                    <div className="score-panel-label">Team A</div>
                     {scoreboard.servingTeam === 'A' && (
                       <div className="serving-chip">Serving</div>
                     )}
                   </div>
+                  <input
+                    className="team-name-input score-panel-name-input"
+                    value={scoreboard.teamAName}
+                    onChange={(event) =>
+                      setScoreboard((previous) => ({
+                        ...previous,
+                        teamAName: event.target.value,
+                      }))
+                    }
+                  />
                   <div className="big-score">{scoreboard.teamAScore}</div>
+                  <div className="score-adjust-row">
+                    <button
+                      className="score-btn secondary-score-btn"
+                      onClick={() => adjustScoreboardPoints('A', -1)}
+                      type="button"
+                    >
+                      -1 pt
+                    </button>
+                    <button
+                      className="score-btn"
+                      onClick={() => adjustScoreboardPoints('A', 1)}
+                      type="button"
+                    >
+                      +1 pt
+                    </button>
+                  </div>
                   <div className="score-actions score-actions-large">
                     <button
                       className="score-btn"
@@ -2042,18 +2108,52 @@ function App() {
                   </div>
                 </div>
 
+                <div className="center-server-indicator">
+                  <div className="center-server-label">Now Serving</div>
+                  <div className="center-server-team">
+                    {scoreboard.servingTeam === 'A' ? scoreboard.teamAName : scoreboard.teamBName}
+                  </div>
+                  <div className="center-server-number">Server {scoreboard.serverNumber}</div>
+                </div>
+
                 <div
                   className={`score-panel ${
                     scoreboard.servingTeam === 'B' ? 'serving-panel panel-b' : 'panel-b'
                   }`}
                 >
                   <div className="score-panel-top">
-                    <div className="score-panel-label">Team B Score</div>
+                    <div className="score-panel-label">Team B</div>
                     {scoreboard.servingTeam === 'B' && (
                       <div className="serving-chip">Serving</div>
                     )}
                   </div>
+                  <input
+                    className="team-name-input score-panel-name-input"
+                    value={scoreboard.teamBName}
+                    onChange={(event) =>
+                      setScoreboard((previous) => ({
+                        ...previous,
+                        teamBName: event.target.value,
+                      }))
+                    }
+                  />
                   <div className="big-score">{scoreboard.teamBScore}</div>
+                  <div className="score-adjust-row">
+                    <button
+                      className="score-btn secondary-score-btn"
+                      onClick={() => adjustScoreboardPoints('B', -1)}
+                      type="button"
+                    >
+                      -1 pt
+                    </button>
+                    <button
+                      className="score-btn mint-btn"
+                      onClick={() => adjustScoreboardPoints('B', 1)}
+                      type="button"
+                    >
+                      +1 pt
+                    </button>
+                  </div>
                   <div className="score-actions score-actions-large">
                     <button
                       className="score-btn mint-btn"
@@ -2064,19 +2164,6 @@ function App() {
                     </button>
                   </div>
                 </div>
-              </div>
-
-              <div className="scoreboard-label-bar">
-                <input
-                  className="team-name-input"
-                  value={scoreboard.teamBName}
-                  onChange={(event) =>
-                    setScoreboard((previous) => ({
-                      ...previous,
-                      teamBName: event.target.value,
-                    }))
-                  }
-                />
               </div>
 
               <div className="scoreboard-status-row">
