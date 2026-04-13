@@ -1,6 +1,6 @@
 <svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
   <rect width="1024" height="1024" rx="220" fill="#2F2A2B"/>
-  <g transform="translate(106 250)">
+  <g transform="translate(121 369) scale(0.75)">
     <path d="M0 36C0 19.4 13.4 6 30 6H124C195.2 6 248 54 248 124C248 193.4 195.2 242 124 242H30C13.4 242 0 228.6 0 212V36ZM84 81V167H121C151.8 167 172 149.8 172 124C172 98.2 151.8 81 121 81H84Z" fill="#B694F1"/>
     <path d="M289 6H368V242H289V6Z" fill="#B694F1"/>
     <path d="M405 6H499L433 118L506 242H411L357 154V92L405 6Z" fill="#B694F1"/>
@@ -18,10 +18,8 @@
       <circle cx="44" cy="104" r="8" fill="#2F2A2B"/>
       <circle cx="104" cy="104" r="8" fill="#2F2A2B"/>
     </g>
-
     <path d="M531 6H664C714 6 749 35 749 83C749 114 731 138 699 149C737 159 760 186 760 226C760 283 713 319 641 319H531V249H631C656 249 673 239 673 220C673 201 656 191 631 191H531V132H626C648 132 662 123 662 106C662 89 648 80 626 80H531V6Z" fill="#F6F4F7"/>
     <path d="M782 6H879C974 6 1042 72 1042 162C1042 252 974 319 879 319H782V6ZM866 85V240H877C922 240 953 209 953 162C953 115 922 85 877 85H866Z" fill="#F6F4F7"/>
-
     <rect x="0" y="357" width="562" height="18" rx="9" fill="#F6F4F7"/>
     <rect x="841" y="357" width="201" height="18" rx="9" fill="#F6F4F7"/>
     <text x="601" y="382" fill="#F6F4F7" font-family="Trebuchet MS, Arial, sans-serif" font-size="86" font-weight="700" letter-spacing="18">PANABO</text>
