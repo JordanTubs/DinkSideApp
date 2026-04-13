@@ -1,27 +1,14 @@
 <svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
   <rect width="1024" height="1024" rx="220" fill="#2F2A2B"/>
-  <g transform="translate(121 369) scale(0.75)">
-    <path d="M0 36C0 19.4 13.4 6 30 6H124C195.2 6 248 54 248 124C248 193.4 195.2 242 124 242H30C13.4 242 0 228.6 0 212V36ZM84 81V167H121C151.8 167 172 149.8 172 124C172 98.2 151.8 81 121 81H84Z" fill="#B694F1"/>
-    <path d="M289 6H368V242H289V6Z" fill="#B694F1"/>
-    <path d="M405 6H499L433 118L506 242H411L357 154V92L405 6Z" fill="#B694F1"/>
-    <path d="M357 92L427 154H357L290 92H357Z" fill="#B694F1"/>
-    <g transform="translate(178 0)">
-      <circle cx="74" cy="74" r="58" stroke="#2F2A2B" stroke-width="14"/>
-      <circle cx="74" cy="74" r="55" stroke="#B694F1" stroke-width="18"/>
-      <circle cx="74" cy="74" r="10" fill="#2F2A2B"/>
-      <circle cx="74" cy="31" r="8" fill="#2F2A2B"/>
-      <circle cx="74" cy="117" r="8" fill="#2F2A2B"/>
-      <circle cx="31" cy="74" r="8" fill="#2F2A2B"/>
-      <circle cx="117" cy="74" r="8" fill="#2F2A2B"/>
-      <circle cx="44" cy="44" r="8" fill="#2F2A2B"/>
-      <circle cx="104" cy="44" r="8" fill="#2F2A2B"/>
-      <circle cx="44" cy="104" r="8" fill="#2F2A2B"/>
-      <circle cx="104" cy="104" r="8" fill="#2F2A2B"/>
-    </g>
-    <path d="M531 6H664C714 6 749 35 749 83C749 114 731 138 699 149C737 159 760 186 760 226C760 283 713 319 641 319H531V249H631C656 249 673 239 673 220C673 201 656 191 631 191H531V132H626C648 132 662 123 662 106C662 89 648 80 626 80H531V6Z" fill="#F6F4F7"/>
-    <path d="M782 6H879C974 6 1042 72 1042 162C1042 252 974 319 879 319H782V6ZM866 85V240H877C922 240 953 209 953 162C953 115 922 85 877 85H866Z" fill="#F6F4F7"/>
-    <rect x="0" y="357" width="562" height="18" rx="9" fill="#F6F4F7"/>
-    <rect x="841" y="357" width="201" height="18" rx="9" fill="#F6F4F7"/>
-    <text x="601" y="382" fill="#F6F4F7" font-family="Trebuchet MS, Arial, sans-serif" font-size="86" font-weight="700" letter-spacing="18">PANABO</text>
-  </g>
+  <rect x="72" y="72" width="880" height="880" rx="184" fill="url(#panel)" stroke="rgba(255,255,255,0.08)"/>
+  <path d="M232 310C232 280.177 256.177 256 286 256H418C518.516 256 590 322.078 590 416C590 509.922 518.516 576 418 576H286C256.177 576 232 551.823 232 522V310ZM348 356V476H411C450.58 476 476 451.857 476 416C476 380.143 450.58 356 411 356H348Z" fill="#B694F1"/>
+  <path d="M638 256H786C863.65 256 920 302.475 920 372C920 425.104 887.374 458.729 830 470.5C897.655 480.404 944 520.301 944 585C944 663.461 874.316 720 772 720H626C596.177 720 572 695.823 572 666V630H688V640H766C808.504 640 835 621.748 835 592C835 562.252 808.504 544 766 544H638V464H750C787.076 464 810 447.66 810 420C810 392.34 787.076 376 750 376H638V256Z" fill="#F6F4F7"/>
+  <rect x="228" y="676" width="568" height="22" rx="11" fill="#F6F4F7" fill-opacity="0.92"/>
+  <text x="512" y="790" text-anchor="middle" fill="#F6F4F7" font-family="Trebuchet MS, Arial, sans-serif" font-size="108" font-weight="700" letter-spacing="22">PANABO</text>
+  <defs>
+    <linearGradient id="panel" x1="160" y1="112" x2="884" y2="912" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3F2462"/>
+      <stop offset="1" stop-color="#53307A"/>
+    </linearGradient>
+  </defs>
 </svg>
