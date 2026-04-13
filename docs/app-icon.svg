@@ -1,14 +1,30 @@
 <svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="1024" height="1024" rx="220" fill="#2F2A2B"/>
-  <rect x="72" y="72" width="880" height="880" rx="184" fill="url(#panel)" stroke="rgba(255,255,255,0.08)"/>
-  <path d="M232 310C232 280.177 256.177 256 286 256H418C518.516 256 590 322.078 590 416C590 509.922 518.516 576 418 576H286C256.177 576 232 551.823 232 522V310ZM348 356V476H411C450.58 476 476 451.857 476 416C476 380.143 450.58 356 411 356H348Z" fill="#B694F1"/>
-  <path d="M638 256H786C863.65 256 920 302.475 920 372C920 425.104 887.374 458.729 830 470.5C897.655 480.404 944 520.301 944 585C944 663.461 874.316 720 772 720H626C596.177 720 572 695.823 572 666V630H688V640H766C808.504 640 835 621.748 835 592C835 562.252 808.504 544 766 544H638V464H750C787.076 464 810 447.66 810 420C810 392.34 787.076 376 750 376H638V256Z" fill="#F6F4F7"/>
-  <rect x="228" y="676" width="568" height="22" rx="11" fill="#F6F4F7" fill-opacity="0.92"/>
-  <text x="512" y="790" text-anchor="middle" fill="#F6F4F7" font-family="Trebuchet MS, Arial, sans-serif" font-size="108" font-weight="700" letter-spacing="22">PANABO</text>
-  <defs>
-    <linearGradient id="panel" x1="160" y1="112" x2="884" y2="912" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#3F2462"/>
-      <stop offset="1" stop-color="#53307A"/>
-    </linearGradient>
-  </defs>
+  <rect width="1024" height="1024" rx="220" fill="#312C2E"/>
+  <g transform="translate(178 258)">
+    <path d="M0 24C0 10.75 10.75 0 24 0H64C105.2 0 134 27.15 134 66C134 104.85 105.2 132 64 132H24C10.75 132 0 121.25 0 108V24ZM49 40V92H63C79.32 92 90 81.95 90 66C90 50.05 79.32 40 63 40H49Z" fill="#B695F1"/>
+    <path d="M154 0H202V132H154V0Z" fill="#B695F1"/>
+    <path d="M219 0H269L230 63L272 132H220L190 82V49L219 0Z" fill="#B695F1"/>
+    <path d="M190 49L219 82H190L160 49H190Z" fill="#B695F1"/>
+    <g transform="translate(64 -6)">
+      <circle cx="48" cy="48" r="38" stroke="#B695F1" stroke-width="10"/>
+      <circle cx="48" cy="48" r="6" fill="#312C2E"/>
+      <circle cx="48" cy="20" r="4.5" fill="#312C2E"/>
+      <circle cx="48" cy="76" r="4.5" fill="#312C2E"/>
+      <circle cx="20" cy="48" r="4.5" fill="#312C2E"/>
+      <circle cx="76" cy="48" r="4.5" fill="#312C2E"/>
+      <circle cx="28" cy="28" r="4.5" fill="#312C2E"/>
+      <circle cx="68" cy="28" r="4.5" fill="#312C2E"/>
+      <circle cx="28" cy="68" r="4.5" fill="#312C2E"/>
+      <circle cx="68" cy="68" r="4.5" fill="#312C2E"/>
+    </g>
+
+    <path d="M296 0H403C436.7 0 461 18.72 461 46C461 67.74 445.85 81.09 420 86C451.03 90.3 472 106.87 472 134C472 168.9 442.95 192 400 192H296V143H391C405.49 143 414 136.85 414 127C414 117.15 405.49 111 391 111H296V85H387C399.32 85 406.5 79.9 406.5 71C406.5 62.1 399.32 57 387 57H296V0Z" fill="#F6F4F7"/>
+    <path d="M486 0H536V192H486V0Z" fill="#F6F4F7"/>
+    <path d="M555 0H662C715.7 0 754 38.63 754 96C754 153.37 715.7 192 662 192H555V0ZM605 54V138H662C686.99 138 704 121 704 96C704 71 686.99 54 662 54H605Z" fill="#F6F4F7"/>
+    <path d="M772 0H878C931.7 0 970 38.63 970 96C970 153.37 931.7 192 878 192H772V0ZM822 54V138H878C902.99 138 920 121 920 96C920 71 902.99 54 878 54H822Z" fill="#F6F4F7"/>
+
+    <rect x="0" y="232" width="462" height="14" rx="7" fill="#F6F4F7"/>
+    <rect x="793" y="232" width="177" height="14" rx="7" fill="#F6F4F7"/>
+    <text x="626" y="258" text-anchor="middle" fill="#F6F4F7" font-family="Trebuchet MS, Arial, sans-serif" font-size="72" font-weight="700" letter-spacing="18">PANABO</text>
+  </g>
 </svg>

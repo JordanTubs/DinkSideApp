@@ -1,14 +1,13 @@
 {
   "files": {
-    "main.css": "/DinkSideApp/static/css/main.4060d8c3.css",
-    "main.js": "/DinkSideApp/static/js/main.cce8a72c.js",
-    "static/media/logo.jpg": "/DinkSideApp/static/media/logo.c3a0725808b4dfaff51d.jpg",
+    "main.css": "/DinkSideApp/static/css/main.fabe1948.css",
+    "main.js": "/DinkSideApp/static/js/main.701aaa51.js",
     "index.html": "/DinkSideApp/index.html",
-    "main.4060d8c3.css.map": "/DinkSideApp/static/css/main.4060d8c3.css.map",
-    "main.cce8a72c.js.map": "/DinkSideApp/static/js/main.cce8a72c.js.map"
+    "main.fabe1948.css.map": "/DinkSideApp/static/css/main.fabe1948.css.map",
+    "main.701aaa51.js.map": "/DinkSideApp/static/js/main.701aaa51.js.map"
   },
   "entrypoints": [
-    "static/css/main.4060d8c3.css",
-    "static/js/main.cce8a72c.js"
+    "static/css/main.fabe1948.css",
+    "static/js/main.701aaa51.js"
   ]
 }
