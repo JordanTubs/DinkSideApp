@@ -1,29 +1,29 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import logo from './logo.svg';
+import logo from './logo.jpg';
 
 const STORAGE_KEY = 'dink-side-organizer-state';
 
 function App() {
   const sampleOpenPlayers = [
-    'Jordan',
-    'Kyana',
-    'Kyara',
-    'Chauncy',
-    'Kyan',
-    'Saf',
-    'Kyde',
-    'Cyra',
+    'Player 1',
+    'Player 2',
+    'Player 3',
+    'Player 4',
+    'Player 5',
+    'Player 6',
+    'Player 7',
+    'Player 8',
   ];
 
   const sampleTournamentPlayers = [
-    'Jordan',
-    'Kyana',
-    'Kyara',
-    'Chauncy',
-    'Kyan',
-    'Saf',
-    'Kyde',
-    'Cyra',
+    'Player 1',
+    'Player 2',
+    'Player 3',
+    'Player 4',
+    'Player 5',
+    'Player 6',
+    'Player 7',
+    'Player 8',
   ];
 
   const defaultOpenPlay = {
