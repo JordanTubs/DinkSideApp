@@ -651,23 +651,15 @@
   }
 
   .center-server-indicator {
-    @apply flex flex-col items-center justify-center gap-2 self-center rounded-[24px] border px-4 py-4 text-center;
-    min-width: min(100%, 220px);
+    @apply flex items-center justify-center self-center rounded-[24px] border px-4 py-4 text-center;
+    min-width: min(100%, 180px);
     border-color: rgba(246, 196, 69, 0.34);
     background: linear-gradient(180deg, rgba(246, 196, 69, 0.18), rgba(143, 99, 244, 0.16));
     box-shadow: 0 12px 24px rgba(246, 196, 69, 0.14);
   }
 
-  .center-server-label {
-    @apply text-[0.78rem] font-black uppercase tracking-[0.16em] text-dink-muted;
-  }
-
-  .center-server-team {
-    @apply text-[1.12rem] font-black text-dink-white;
-  }
-
   .center-server-number {
-    @apply rounded-full px-3 py-2 text-[0.9rem] font-black;
+    @apply rounded-full px-4 py-3 text-[1rem] font-black text-dink-white;
     background: rgba(255, 255, 255, 0.12);
     border: 1px solid rgba(255, 255, 255, 0.18);
   }

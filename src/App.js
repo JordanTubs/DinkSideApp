@@ -2051,13 +2051,6 @@ function App() {
                 </button>
               </div>
 
-              <div className="scoreboard-status-row">
-                <div className="status-pill">
-                  Serving Team: {scoreboard.servingTeam === 'A' ? scoreboard.teamAName : scoreboard.teamBName}
-                </div>
-                <div className="status-pill muted-status">Server {scoreboard.serverNumber}</div>
-              </div>
-
               <div className="scoreboard-stack">
                 <div
                   className={`score-panel ${
@@ -2109,10 +2102,6 @@ function App() {
                 </div>
 
                 <div className="center-server-indicator">
-                  <div className="center-server-label">Now Serving</div>
-                  <div className="center-server-team">
-                    {scoreboard.servingTeam === 'A' ? scoreboard.teamAName : scoreboard.teamBName}
-                  </div>
                   <div className="center-server-number">Server {scoreboard.serverNumber}</div>
                 </div>
 
