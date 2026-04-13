@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import logo from './logo.jpg';
 
 const STORAGE_KEY = 'dink-side-organizer-state';
 const LEGACY_PLAYER_NAMES = [
@@ -13,8 +14,6 @@ const LEGACY_PLAYER_NAMES = [
 ];
 
 function App() {
-  const heroLogo = `${process.env.PUBLIC_URL}/app-icon.svg`;
-
   const sampleOpenPlayers = [
     'Player 1',
     'Player 2',
@@ -1582,7 +1581,7 @@ function App() {
               <div className="hero-inner">
                 <div className="hero-badge">Pickleball Organizer</div>
                 <div className="hero-logo">
-                  <img src={heroLogo} alt="DS logo" />
+                  <img src={logo} alt="DinkSide logo" />
                 </div>
                 <div className="hero-title">DINK SIDE</div>
                 <div className="hero-subtitle">Pickleball Match Organizer</div>
