@@ -1,9 +1,21 @@
 {
-  "short_name": "Pickleball",
-  "name": "Pickleball Match Organizer",
+  "short_name": "DinkSide",
+  "name": "DinkSide",
   "start_url": ".",
   "display": "standalone",
   "background_color": "#f4f8ef",
   "theme_color": "#3f7d32",
-  "description": "Organize pickleball open play and tournaments offline."
+  "description": "Organize pickleball open play and tournaments offline.",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
 }
