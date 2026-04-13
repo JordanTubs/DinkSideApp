@@ -2,6 +2,16 @@ import React, { useEffect, useMemo, useState } from 'react';
 import logo from './logo.jpg';
 
 const STORAGE_KEY = 'dink-side-organizer-state';
+const LEGACY_PLAYER_NAMES = [
+  'Jordan',
+  'Kyana',
+  'Kyara',
+  'Chauncy',
+  'Kyan',
+  'Saf',
+  'Kyde',
+  'Cyra',
+];
 
 function App() {
   const sampleOpenPlayers = [
@@ -95,6 +105,58 @@ function App() {
   const [hasLoaded, setHasLoaded] = useState(false);
   const [tournamentWarning, setTournamentWarning] = useState('');
 
+  function hasLegacySeedNames(players) {
+    if (!Array.isArray(players) || players.length !== LEGACY_PLAYER_NAMES.length) {
+      return false;
+    }
+
+    return players.every(
+      (player, index) => player?.name === LEGACY_PLAYER_NAMES[index]
+    );
+  }
+
+  function sanitizeOpenPlayState(savedOpenPlay) {
+    if (!savedOpenPlay) {
+      return defaultOpenPlay;
+    }
+
+    if (!hasLegacySeedNames(savedOpenPlay.players)) {
+      return savedOpenPlay;
+    }
+
+    return {
+      ...savedOpenPlay,
+      playerInput: '',
+      players: sampleOpenPlayers.map((name, index) => ({
+        id: savedOpenPlay.players[index]?.id || `open-player-${index + 1}`,
+        name,
+        playCount: savedOpenPlay.players[index]?.playCount || 0,
+        waitCount: savedOpenPlay.players[index]?.waitCount || 0,
+        lastRoundPlayed: savedOpenPlay.players[index]?.lastRoundPlayed || 0,
+      })),
+    };
+  }
+
+  function sanitizeTournamentState(savedTournament) {
+    if (!savedTournament) {
+      return defaultTournament;
+    }
+
+    if (!hasLegacySeedNames(savedTournament.players)) {
+      return savedTournament;
+    }
+
+    return {
+      ...savedTournament,
+      playerInput: '',
+      players: sampleTournamentPlayers.map((name, index) => ({
+        id:
+          savedTournament.players[index]?.id || `tournament-player-${index + 1}`,
+        name,
+      })),
+    };
+  }
+
   useEffect(() => {
     const savedState = localStorage.getItem(STORAGE_KEY);
 
@@ -102,8 +164,8 @@ function App() {
       try {
         const parsed = JSON.parse(savedState);
         setPhase(parsed.phase || 'menu');
-        setOpenPlay(parsed.openPlay || defaultOpenPlay);
-        setTournament(parsed.tournament || defaultTournament);
+        setOpenPlay(sanitizeOpenPlayState(parsed.openPlay));
+        setTournament(sanitizeTournamentState(parsed.tournament));
         setScoreboard(parsed.scoreboard || defaultScoreboard);
         setHistoryItems(parsed.historyItems || []);
       } catch (error) {
