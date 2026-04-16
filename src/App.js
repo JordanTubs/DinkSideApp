@@ -54,6 +54,8 @@ function App() {
     error: '',
     partnerStats: {},
     matchupStats: {},
+    opponentStats: {},
+    quartetStats: {},
   };
 
   const defaultTournament = {
@@ -120,12 +122,20 @@ function App() {
       return defaultOpenPlay;
     }
 
+    const normalizedOpenPlay = {
+      ...savedOpenPlay,
+      partnerStats: savedOpenPlay.partnerStats || {},
+      matchupStats: savedOpenPlay.matchupStats || {},
+      opponentStats: savedOpenPlay.opponentStats || {},
+      quartetStats: savedOpenPlay.quartetStats || {},
+    };
+
     if (!hasLegacySeedNames(savedOpenPlay.players)) {
-      return savedOpenPlay;
+      return normalizedOpenPlay;
     }
 
     return {
-      ...savedOpenPlay,
+      ...normalizedOpenPlay,
       playerInput: '',
       players: sampleOpenPlayers.map((name, index) => ({
         id: savedOpenPlay.players[index]?.id || `open-player-${index + 1}`,
@@ -242,9 +252,19 @@ function App() {
     return openPlay.partnerStats[key] || 0;
   }
 
+  function getOpenPlayOpponentPenaltyValue(nameA, nameB) {
+    const key = sortNames(nameA, nameB);
+    return openPlay.opponentStats[key] || 0;
+  }
+
   function getOpenPlayMatchupPenalty(teamA, teamB) {
     const key = sortNames(teamA.displayName, teamB.displayName);
     return openPlay.matchupStats[key] || 0;
+  }
+
+  function getOpenPlayQuartetPenalty(playerNames) {
+    const key = [...playerNames].sort().join(' | ');
+    return openPlay.quartetStats[key] || 0;
   }
 
   function updateOpenPlayPlayerInput(value) {
@@ -330,67 +350,116 @@ function App() {
     }));
   }
 
-  function buildOpenPlayTeams(activePlayers) {
-    const remainingPlayers = [...activePlayers];
-    const createdTeams = [];
+  function evaluateOpenPlayMatch(playerNames) {
+    const [a, b, c, d] = playerNames;
+    const options = [
+      { teamAPlayers: [a, b], teamBPlayers: [c, d] },
+      { teamAPlayers: [a, c], teamBPlayers: [b, d] },
+      { teamAPlayers: [a, d], teamBPlayers: [b, c] },
+    ];
+    let bestOption = null;
+    let bestScore = Infinity;
 
-    while (remainingPlayers.length >= 2) {
-      const firstPlayer = remainingPlayers.shift();
-      let bestPartnerIndex = 0;
-      let bestPartnerScore = Infinity;
+    options.forEach((option) => {
+      const teamA = option.teamAPlayers.join(' & ');
+      const teamB = option.teamBPlayers.join(' & ');
+      const partnerPenalty =
+        getOpenPlayPartnerPenalty(option.teamAPlayers[0], option.teamAPlayers[1]) +
+        getOpenPlayPartnerPenalty(option.teamBPlayers[0], option.teamBPlayers[1]);
+      const opponentPenalty = option.teamAPlayers.reduce(
+        (total, teamAPlayer) =>
+          total +
+          option.teamBPlayers.reduce(
+            (subTotal, teamBPlayer) =>
+              subTotal + getOpenPlayOpponentPenaltyValue(teamAPlayer, teamBPlayer),
+            0
+          ),
+        0
+      );
+      const matchupPenalty = openPlay.matchupStats[sortNames(teamA, teamB)] || 0;
+      const score = partnerPenalty * 120 + opponentPenalty * 18 + matchupPenalty * 60;
 
-      for (let i = 0; i < remainingPlayers.length; i += 1) {
-        const partnerPlayer = remainingPlayers[i];
-        const partnerPenalty = getOpenPlayPartnerPenalty(
-          firstPlayer.name,
-          partnerPlayer.name
-        );
-        const restBalance = Math.abs(firstPlayer.playCount - partnerPlayer.playCount);
-        const score = partnerPenalty * 20 + restBalance;
-
-        if (score < bestPartnerScore) {
-          bestPartnerScore = score;
-          bestPartnerIndex = i;
-        }
+      if (score < bestScore) {
+        bestScore = score;
+        bestOption = {
+          teamA,
+          teamB,
+          teamAPlayers: option.teamAPlayers,
+          teamBPlayers: option.teamBPlayers,
+        };
       }
+    });
 
-      const secondPlayer = remainingPlayers.splice(bestPartnerIndex, 1)[0];
-      createdTeams.push({
-        id: createId('open-team'),
-        players: [firstPlayer.name, secondPlayer.name],
-        displayName: `${firstPlayer.name} & ${secondPlayer.name}`,
-      });
-    }
-
-    return createdTeams;
+    return {
+      ...bestOption,
+      score: bestScore + getOpenPlayQuartetPenalty(playerNames) * 200,
+    };
   }
 
-  function buildOpenPlayMatches(teams, courts, roundNumber) {
-    const remainingTeams = [...teams];
+  function chooseBestOpenPlayQuartet(players) {
+    if (players.length < 4) {
+      return null;
+    }
+
+    const [firstPlayer, ...remainingPlayers] = players;
+    let bestQuartet = null;
+    let bestScore = Infinity;
+
+    for (let i = 0; i < remainingPlayers.length - 2; i += 1) {
+      for (let j = i + 1; j < remainingPlayers.length - 1; j += 1) {
+        for (let k = j + 1; k < remainingPlayers.length; k += 1) {
+          const chosenPlayers = [
+            firstPlayer,
+            remainingPlayers[i],
+            remainingPlayers[j],
+            remainingPlayers[k],
+          ];
+          const playBalance = Math.max(...chosenPlayers.map((player) => player.playCount)) -
+            Math.min(...chosenPlayers.map((player) => player.playCount));
+          const matchEvaluation = evaluateOpenPlayMatch(
+            chosenPlayers.map((player) => player.name)
+          );
+          const score = matchEvaluation.score + playBalance * 15;
+
+          if (score < bestScore) {
+            bestScore = score;
+            bestQuartet = {
+              chosenPlayers,
+              matchEvaluation,
+            };
+          }
+        }
+      }
+    }
+
+    return bestQuartet;
+  }
+
+  function buildOpenPlayMatches(activePlayers, courts, roundNumber) {
+    const remainingPlayers = [...activePlayers];
     const createdMatches = [];
 
-    while (remainingTeams.length >= 2 && createdMatches.length < courts) {
-      const firstTeam = remainingTeams.shift();
-      let bestOpponentIndex = 0;
-      let bestOpponentScore = Infinity;
+    while (remainingPlayers.length >= 4 && createdMatches.length < courts) {
+      const bestQuartet = chooseBestOpenPlayQuartet(remainingPlayers);
 
-      for (let i = 0; i < remainingTeams.length; i += 1) {
-        const secondTeam = remainingTeams[i];
-        const matchupPenalty = getOpenPlayMatchupPenalty(firstTeam, secondTeam);
+      if (!bestQuartet) {
+        break;
+      }
 
-        if (matchupPenalty < bestOpponentScore) {
-          bestOpponentScore = matchupPenalty;
-          bestOpponentIndex = i;
+      const chosenNames = new Set(bestQuartet.chosenPlayers.map((player) => player.name));
+
+      for (let i = remainingPlayers.length - 1; i >= 0; i -= 1) {
+        if (chosenNames.has(remainingPlayers[i].name)) {
+          remainingPlayers.splice(i, 1);
         }
       }
 
-      const secondTeam = remainingTeams.splice(bestOpponentIndex, 1)[0];
       createdMatches.push({
         id: createId('open-match'),
         round: roundNumber,
         court: createdMatches.length + 1,
-        teamA: firstTeam.displayName,
-        teamB: secondTeam.displayName,
+        teamA: bestQuartet.matchEvaluation.teamA,
+        teamB: bestQuartet.matchEvaluation.teamB,
         winner: '',
         played: false,
       });
@@ -464,41 +533,6 @@ function App() {
       .map((player) => player.name);
   }
 
-  function createRotatedCourtMatch(previousMatch, roundNumber, courtNumber) {
-    const teamAPlayers = getTeamPlayerNames(previousMatch.teamA);
-    const teamBPlayers = getTeamPlayerNames(previousMatch.teamB);
-
-    const firstOption = {
-      teamA: `${teamAPlayers[0]} & ${teamBPlayers[0]}`,
-      teamB: `${teamAPlayers[1]} & ${teamBPlayers[1]}`,
-    };
-
-    if (
-      sortNames(firstOption.teamA, firstOption.teamB) !==
-      sortNames(previousMatch.teamA, previousMatch.teamB)
-    ) {
-      return {
-        id: createId('open-match'),
-        round: roundNumber,
-        court: courtNumber,
-        teamA: firstOption.teamA,
-        teamB: firstOption.teamB,
-        winner: '',
-        played: false,
-      };
-    }
-
-    return {
-      id: createId('open-match'),
-      round: roundNumber,
-      court: courtNumber,
-      teamA: `${teamAPlayers[0]} & ${teamBPlayers[1]}`,
-      teamB: `${teamAPlayers[1]} & ${teamBPlayers[0]}`,
-      winner: '',
-      played: false,
-    };
-  }
-
   function createRollingOpenPlayMatch(courtNumber, excludedMatchId, previousMatch) {
     const busyPlayerNames = new Set(
       getBusyOpenPlayPlayers(openPlay.currentMatches, excludedMatchId)
@@ -522,26 +556,26 @@ function App() {
       return null;
     }
 
-    const chosenPlayers = availablePlayers.slice(0, 4);
-    const waitingPlayers = availablePlayers.slice(4);
-    const nextRoundNumber = openPlay.currentRound + 1;
-    const previousPlayers = [
-      ...getTeamPlayerNames(previousMatch.teamA),
-      ...getTeamPlayerNames(previousMatch.teamB),
-    ].sort();
-    const chosenPlayerNames = chosenPlayers.map((player) => player.name).sort();
-    const usingSameFourPlayers =
-      chosenPlayers.length === 4 &&
-      previousPlayers.length === 4 &&
-      previousPlayers.every((name, index) => name === chosenPlayerNames[index]);
-    let createdMatch;
+    const candidatePlayers = availablePlayers.slice(0, Math.min(8, availablePlayers.length));
+    const bestQuartet = chooseBestOpenPlayQuartet(candidatePlayers);
 
-    if (usingSameFourPlayers) {
-      createdMatch = createRotatedCourtMatch(previousMatch, nextRoundNumber, courtNumber);
-    } else {
-      const createdTeams = buildOpenPlayTeams(chosenPlayers);
-      createdMatch = buildOpenPlayMatches(createdTeams, 1, nextRoundNumber)[0];
+    if (!bestQuartet) {
+      return null;
     }
+
+    const chosenIds = new Set(bestQuartet.chosenPlayers.map((player) => player.id));
+    const chosenPlayers = availablePlayers.filter((player) => chosenIds.has(player.id));
+    const waitingPlayers = availablePlayers.filter((player) => !chosenIds.has(player.id));
+    const nextRoundNumber = openPlay.currentRound + 1;
+    const createdMatch = {
+      id: createId('open-match'),
+      round: nextRoundNumber,
+      court: courtNumber,
+      teamA: bestQuartet.matchEvaluation.teamA,
+      teamB: bestQuartet.matchEvaluation.teamB,
+      winner: '',
+      played: false,
+    };
 
     if (!createdMatch) {
       return null;
@@ -606,12 +640,7 @@ function App() {
     const activePlayers = sortedPlayers.slice(0, maxPlayablePlayers);
     const waitingPlayers = sortedPlayers.slice(maxPlayablePlayers);
     const nextRoundNumber = openPlay.currentRound + 1;
-    const createdTeams = buildOpenPlayTeams(activePlayers);
-    const createdMatches = buildOpenPlayMatches(
-      createdTeams,
-      openPlay.courts,
-      nextRoundNumber
-    );
+    const createdMatches = buildOpenPlayMatches(activePlayers, openPlay.courts, nextRoundNumber);
 
     const updatedPlayers = openPlay.players.map((player) => {
       const isActive = activePlayers.some((activePlayer) => activePlayer.id === player.id);
@@ -637,15 +666,29 @@ function App() {
 
     const updatedPartnerStats = { ...openPlay.partnerStats };
     const updatedMatchupStats = { ...openPlay.matchupStats };
-
-    createdTeams.forEach((team) => {
-      const pairKey = sortNames(team.players[0], team.players[1]);
-      updatedPartnerStats[pairKey] = (updatedPartnerStats[pairKey] || 0) + 1;
-    });
+    const updatedOpponentStats = { ...openPlay.opponentStats };
+    const updatedQuartetStats = { ...openPlay.quartetStats };
 
     createdMatches.forEach((match) => {
+      const teamAPlayers = getTeamPlayerNames(match.teamA);
+      const teamBPlayers = getTeamPlayerNames(match.teamB);
+      const teamAPairKey = sortNames(teamAPlayers[0], teamAPlayers[1]);
+      const teamBPairKey = sortNames(teamBPlayers[0], teamBPlayers[1]);
+      const quartetKey = [...teamAPlayers, ...teamBPlayers].sort().join(' | ');
       const matchupKey = sortNames(match.teamA, match.teamB);
+
+      updatedPartnerStats[teamAPairKey] = (updatedPartnerStats[teamAPairKey] || 0) + 1;
+      updatedPartnerStats[teamBPairKey] = (updatedPartnerStats[teamBPairKey] || 0) + 1;
       updatedMatchupStats[matchupKey] = (updatedMatchupStats[matchupKey] || 0) + 1;
+      updatedQuartetStats[quartetKey] = (updatedQuartetStats[quartetKey] || 0) + 1;
+
+      teamAPlayers.forEach((teamAPlayer) => {
+        teamBPlayers.forEach((teamBPlayer) => {
+          const opponentKey = sortNames(teamAPlayer, teamBPlayer);
+          updatedOpponentStats[opponentKey] =
+            (updatedOpponentStats[opponentKey] || 0) + 1;
+        });
+      });
     });
 
     setOpenPlay((previous) => ({
@@ -665,6 +708,8 @@ function App() {
       error: '',
       partnerStats: updatedPartnerStats,
       matchupStats: updatedMatchupStats,
+      opponentStats: updatedOpponentStats,
+      quartetStats: updatedQuartetStats,
     }));
 
     addHistoryItem(
@@ -724,6 +769,10 @@ function App() {
     );
     let updatedPlayers = openPlay.players;
     let updatedCurrentRound = openPlay.currentRound;
+    let updatedPartnerStats = openPlay.partnerStats;
+    let updatedMatchupStats = openPlay.matchupStats;
+    let updatedOpponentStats = openPlay.opponentStats;
+    let updatedQuartetStats = openPlay.quartetStats;
 
     if (rollingMatchData) {
       updatedCurrentMatches = updatedCurrentMatches.map((match) =>
@@ -758,6 +807,34 @@ function App() {
 
         return player;
       });
+
+      const teamAPlayers = getTeamPlayerNames(rollingMatchData.match.teamA);
+      const teamBPlayers = getTeamPlayerNames(rollingMatchData.match.teamB);
+      const teamAPairKey = sortNames(teamAPlayers[0], teamAPlayers[1]);
+      const teamBPairKey = sortNames(teamBPlayers[0], teamBPlayers[1]);
+      const matchupKey = sortNames(
+        rollingMatchData.match.teamA,
+        rollingMatchData.match.teamB
+      );
+      const quartetKey = [...teamAPlayers, ...teamBPlayers].sort().join(' | ');
+
+      updatedPartnerStats = { ...openPlay.partnerStats };
+      updatedMatchupStats = { ...openPlay.matchupStats };
+      updatedOpponentStats = { ...openPlay.opponentStats };
+      updatedQuartetStats = { ...openPlay.quartetStats };
+
+      updatedPartnerStats[teamAPairKey] = (updatedPartnerStats[teamAPairKey] || 0) + 1;
+      updatedPartnerStats[teamBPairKey] = (updatedPartnerStats[teamBPairKey] || 0) + 1;
+      updatedMatchupStats[matchupKey] = (updatedMatchupStats[matchupKey] || 0) + 1;
+      updatedQuartetStats[quartetKey] = (updatedQuartetStats[quartetKey] || 0) + 1;
+
+      teamAPlayers.forEach((teamAPlayer) => {
+        teamBPlayers.forEach((teamBPlayer) => {
+          const opponentKey = sortNames(teamAPlayer, teamBPlayer);
+          updatedOpponentStats[opponentKey] =
+            (updatedOpponentStats[opponentKey] || 0) + 1;
+        });
+      });
     }
 
     const nextWaitingPlayers = getOpenPlayWaitingNames(updatedCurrentMatches);
@@ -770,6 +847,10 @@ function App() {
       players: updatedPlayers,
       currentRound: updatedCurrentRound,
       waitingPlayers: nextWaitingPlayers,
+      partnerStats: updatedPartnerStats,
+      matchupStats: updatedMatchupStats,
+      opponentStats: updatedOpponentStats,
+      quartetStats: updatedQuartetStats,
     }));
 
     addHistoryItem(
