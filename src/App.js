@@ -12,6 +12,11 @@ const LEGACY_PLAYER_NAMES = [
   'Kyde',
   'Cyra',
 ];
+const PLAYER_CATEGORIES = ['Beginner', 'Intermediate', 'Expert'];
+
+function normalizePlayerCategory(category) {
+  return PLAYER_CATEGORIES.includes(category) ? category : 'Beginner';
+}
 
 function App() {
   const sampleOpenPlayers = [
@@ -42,10 +47,14 @@ function App() {
     players: sampleOpenPlayers.map((name, index) => ({
       id: `open-player-${index + 1}`,
       name,
+      category: 'Beginner',
       playCount: 0,
       waitCount: 0,
       lastRoundPlayed: 0,
     })),
+    playerCategory: 'Beginner',
+    mode: 'beginner',
+    selectedCategory: 'Beginner',
     currentRound: 0,
     currentMatches: [],
     waitingPlayers: [],
@@ -60,9 +69,11 @@ function App() {
 
   const defaultTournament = {
     playerInput: '',
+    playerCategory: 'Beginner',
     players: sampleTournamentPlayers.map((name, index) => ({
       id: `tournament-player-${index + 1}`,
       name,
+      category: 'Beginner',
     })),
     teams: [],
     roundRobinRounds: [],
@@ -124,10 +135,17 @@ function App() {
 
     const normalizedOpenPlay = {
       ...savedOpenPlay,
+      playerCategory: normalizePlayerCategory(savedOpenPlay.playerCategory),
+      mode: savedOpenPlay.mode || 'beginner',
+      selectedCategory: normalizePlayerCategory(savedOpenPlay.selectedCategory),
       partnerStats: savedOpenPlay.partnerStats || {},
       matchupStats: savedOpenPlay.matchupStats || {},
       opponentStats: savedOpenPlay.opponentStats || {},
       quartetStats: savedOpenPlay.quartetStats || {},
+      players: (savedOpenPlay.players || []).map((player) => ({
+        ...player,
+        category: normalizePlayerCategory(player.category),
+      })),
     };
 
     if (!hasLegacySeedNames(savedOpenPlay.players)) {
@@ -140,6 +158,7 @@ function App() {
       players: sampleOpenPlayers.map((name, index) => ({
         id: savedOpenPlay.players[index]?.id || `open-player-${index + 1}`,
         name,
+        category: 'Beginner',
         playCount: savedOpenPlay.players[index]?.playCount || 0,
         waitCount: savedOpenPlay.players[index]?.waitCount || 0,
         lastRoundPlayed: savedOpenPlay.players[index]?.lastRoundPlayed || 0,
@@ -153,16 +172,25 @@ function App() {
     }
 
     if (!hasLegacySeedNames(savedTournament.players)) {
-      return savedTournament;
+      return {
+        ...savedTournament,
+        playerCategory: normalizePlayerCategory(savedTournament.playerCategory),
+        players: (savedTournament.players || []).map((player) => ({
+          ...player,
+          category: normalizePlayerCategory(player.category),
+        })),
+      };
     }
 
     return {
       ...savedTournament,
       playerInput: '',
+      playerCategory: normalizePlayerCategory(savedTournament.playerCategory),
       players: sampleTournamentPlayers.map((name, index) => ({
         id:
           savedTournament.players[index]?.id || `tournament-player-${index + 1}`,
         name,
+        category: 'Beginner',
       })),
     };
   }
@@ -274,10 +302,61 @@ function App() {
     }));
   }
 
+  function updateOpenPlayPlayerCategory(value) {
+    setOpenPlay((previous) => ({
+      ...previous,
+      playerCategory: normalizePlayerCategory(value),
+    }));
+  }
+
+  function updateOpenPlayMode(mode) {
+    setOpenPlay((previous) => ({
+      ...previous,
+      mode,
+      selectedCategory: mode === 'beginner' ? 'Beginner' : previous.selectedCategory,
+    }));
+  }
+
+  function updateOpenPlaySelectedCategory(value) {
+    setOpenPlay((previous) => ({
+      ...previous,
+      selectedCategory: normalizePlayerCategory(value),
+    }));
+  }
+
+  function changeOpenPlayPlayerCategory(playerId, category) {
+    setOpenPlay((previous) => ({
+      ...previous,
+      players: previous.players.map((player) =>
+        player.id === playerId
+          ? { ...player, category: normalizePlayerCategory(category) }
+          : player
+      ),
+    }));
+  }
+
   function updateTournamentPlayerInput(value) {
     setTournament((previous) => ({
       ...previous,
       playerInput: value,
+    }));
+  }
+
+  function updateTournamentPlayerCategory(value) {
+    setTournament((previous) => ({
+      ...previous,
+      playerCategory: normalizePlayerCategory(value),
+    }));
+  }
+
+  function changeTournamentPlayerCategory(playerId, category) {
+    setTournament((previous) => ({
+      ...previous,
+      players: previous.players.map((player) =>
+        player.id === playerId
+          ? { ...player, category: normalizePlayerCategory(category) }
+          : player
+      ),
     }));
   }
 
@@ -296,6 +375,7 @@ function App() {
         {
           id: createId('open-player'),
           name: trimmedName,
+          category: previous.playerCategory,
           playCount: 0,
           waitCount: 0,
           lastRoundPlayed: 0,
@@ -327,6 +407,7 @@ function App() {
         {
           id: createId('tournament-player'),
           name: trimmedName,
+          category: previous.playerCategory,
         },
       ],
       error: '',
@@ -348,6 +429,16 @@ function App() {
       ...previous,
       courts: Math.max(1, previous.courts + change),
     }));
+  }
+
+  function getEligibleOpenPlayPlayers(players = openPlay.players) {
+    if (openPlay.mode === 'beginner') {
+      return players.filter((player) => player.category === 'Beginner');
+    }
+
+    return players.filter(
+      (player) => player.category === openPlay.selectedCategory
+    );
   }
 
   function evaluateOpenPlayMatch(playerNames) {
@@ -528,7 +619,7 @@ function App() {
         ])
     );
 
-    return openPlay.players
+    return getEligibleOpenPlayPlayers()
       .filter((player) => !activePlayerNames.has(player.name))
       .map((player) => player.name);
   }
@@ -539,7 +630,9 @@ function App() {
     );
 
     const availablePlayers = shuffleArray(
-      openPlay.players.filter((player) => !busyPlayerNames.has(player.name))
+      getEligibleOpenPlayPlayers().filter(
+        (player) => !busyPlayerNames.has(player.name)
+      )
     ).sort((a, b) => {
       if (a.playCount !== b.playCount) {
         return a.playCount - b.playCount;
@@ -593,6 +686,8 @@ function App() {
   }
 
   function generateOpenPlayRound() {
+    const eligiblePlayers = getEligibleOpenPlayPlayers();
+
     if (
       openPlay.currentMatches.length > 0 &&
       openPlay.currentMatches.some((match) => !match.played)
@@ -604,28 +699,34 @@ function App() {
       return;
     }
 
-    if (openPlay.players.length < 4) {
+    if (eligiblePlayers.length < 4) {
       setOpenPlay((previous) => ({
         ...previous,
-        error: 'Add at least 4 players to create open play matches.',
+        error:
+          openPlay.mode === 'beginner'
+            ? 'Add at least 4 beginner players to create open play matches.'
+            : `Add at least 4 ${openPlay.selectedCategory.toLowerCase()} players to create competitive matches.`,
       }));
       return;
     }
 
     const maxPlayablePlayers = Math.min(
       openPlay.courts * 4,
-      openPlay.players.length - (openPlay.players.length % 4)
+      eligiblePlayers.length - (eligiblePlayers.length % 4)
     );
 
     if (maxPlayablePlayers < 4) {
       setOpenPlay((previous) => ({
         ...previous,
-        error: 'You need enough players to fill at least one doubles court.',
+        error:
+          openPlay.mode === 'beginner'
+            ? 'You need enough beginner players to fill at least one doubles court.'
+            : `You need enough ${openPlay.selectedCategory.toLowerCase()} players to fill at least one doubles court.`,
       }));
       return;
     }
 
-    const sortedPlayers = shuffleArray([...openPlay.players]).sort((a, b) => {
+    const sortedPlayers = shuffleArray([...eligiblePlayers]).sort((a, b) => {
       if (a.playCount !== b.playCount) {
         return a.playCount - b.playCount;
       }
@@ -715,7 +816,7 @@ function App() {
     addHistoryItem(
       'Open Play',
       `Open Play Round ${nextRoundNumber} generated`,
-      `${createdMatches.length} courts active${waitingPlayers.length > 0 ? `, ${waitingPlayers.length} waiting` : ''}`
+      `${openPlay.mode === 'beginner' ? 'Beginner' : openPlay.selectedCategory} · ${createdMatches.length} courts active${waitingPlayers.length > 0 ? `, ${waitingPlayers.length} waiting` : ''}`
     );
   }
 
@@ -895,6 +996,10 @@ function App() {
         id: createId('team'),
         playerIds: [sourcePlayers[i].id, sourcePlayers[i + 1].id],
         players: [sourcePlayers[i].name, sourcePlayers[i + 1].name],
+        playerCategories: [
+          sourcePlayers[i].category,
+          sourcePlayers[i + 1].category,
+        ],
         displayName: `${sourcePlayers[i].name} & ${sourcePlayers[i + 1].name}`,
         originalOrder: i / 2,
       });
@@ -975,6 +1080,10 @@ function App() {
           id: createId('team'),
           playerIds: [sourcePlayers[i].id, sourcePlayers[i + 1].id],
           players: [sourcePlayers[i].name, sourcePlayers[i + 1].name],
+          playerCategories: [
+            sourcePlayers[i].category,
+            sourcePlayers[i + 1].category,
+          ],
           displayName: `${sourcePlayers[i].name} & ${sourcePlayers[i + 1].name}`,
           originalOrder: i / 2,
         });
@@ -1615,6 +1724,11 @@ function App() {
     [tournament.roundRobinRounds, tournament.teams]
   );
 
+  const eligibleOpenPlayPlayers = useMemo(
+    () => getEligibleOpenPlayPlayers(),
+    [openPlay.players, openPlay.mode, openPlay.selectedCategory]
+  );
+
   const openPlayCourtBoards = useMemo(() => {
     return Array.from({ length: openPlay.courts }, (_, index) => {
       const courtNumber = index + 1;
@@ -1637,6 +1751,59 @@ function App() {
       };
     });
   }, [openPlay.courts, openPlay.rounds]);
+
+  const tournamentBracketCards = useMemo(
+    () => [
+      {
+        label: 'Round Robin',
+        detail:
+          tournament.roundRobinRounds.length === 0
+            ? 'Waiting to start'
+            : `${Math.min(
+                tournament.roundRobinIndex + 1,
+                tournament.roundRobinRounds.length
+              )} / ${tournament.roundRobinRounds.length} rounds`,
+        accent: tournament.stage === 'roundRobin' ? 'active-bracket-card' : '',
+      },
+      {
+        label: 'Winner Bracket',
+        detail:
+          tournament.winnerChampion ||
+          (tournament.stage === 'winnerBracket'
+            ? tournament.currentLabel
+            : tournament.winnerSeeds.length > 0
+            ? `${tournament.winnerSeeds.length} seeded teams`
+            : 'Pending'),
+        accent: tournament.stage === 'winnerBracket' ? 'active-bracket-card' : '',
+      },
+      {
+        label: 'Loser Bracket',
+        detail:
+          tournament.loserChampion ||
+          (tournament.stage === 'loserBracket'
+            ? tournament.currentLabel
+            : tournament.loserSeeds.length > 0
+            ? `${tournament.loserSeeds.length} seeded teams`
+            : 'Pending'),
+        accent: tournament.stage === 'loserBracket' ? 'active-bracket-card' : '',
+      },
+      {
+        label: 'Championship',
+        detail:
+          tournament.champion ||
+          (tournament.stage === 'championship'
+            ? tournament.currentLabel
+            : tournament.championshipMatch
+            ? `${tournament.championshipMatch.teamA} vs ${tournament.championshipMatch.teamB}`
+            : 'Pending finalists'),
+        accent:
+          tournament.stage === 'championship' || tournament.stage === 'complete'
+            ? 'active-bracket-card'
+            : '',
+      },
+    ],
+    [tournament]
+  );
 
   function renderMenuCard(icon, title, subtitle, onClick, accentClass) {
     return (
@@ -1735,6 +1902,53 @@ function App() {
             </div>
 
             <div className="glass-card">
+              <div className="section-header with-badge">
+                <span>Play Mode</span>
+                <span className="count-badge">
+                  {openPlay.mode === 'beginner' ? 'Beginner' : 'Competitive'}
+                </span>
+              </div>
+              <div className="mode-toggle-row">
+                <button
+                  className={`mode-toggle-btn ${
+                    openPlay.mode === 'beginner' ? 'active-mode-btn' : ''
+                  }`}
+                  onClick={() => updateOpenPlayMode('beginner')}
+                  type="button"
+                >
+                  Beginner
+                </button>
+                <button
+                  className={`mode-toggle-btn ${
+                    openPlay.mode === 'competitive' ? 'active-mode-btn' : ''
+                  }`}
+                  onClick={() => updateOpenPlayMode('competitive')}
+                  type="button"
+                >
+                  Competitive
+                </button>
+              </div>
+              {openPlay.mode === 'competitive' && (
+                <div className="category-filter-row">
+                  {PLAYER_CATEGORIES.map((category) => (
+                    <button
+                      className={`category-pill-btn ${
+                        openPlay.selectedCategory === category
+                          ? 'active-category-pill'
+                          : ''
+                      }`}
+                      key={category}
+                      onClick={() => updateOpenPlaySelectedCategory(category)}
+                      type="button"
+                    >
+                      {category}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="glass-card">
               <div className="section-header">
                 <span>Number of Courts</span>
               </div>
@@ -1752,7 +1966,9 @@ function App() {
             <div className="glass-card">
               <div className="section-header with-badge">
                 <span>Players</span>
-                <span className="count-badge">{openPlay.players.length}</span>
+                <span className="count-badge">
+                  {eligibleOpenPlayPlayers.length} eligible
+                </span>
               </div>
 
               <div className="input-row">
@@ -1762,9 +1978,26 @@ function App() {
                   onChange={(event) => updateOpenPlayPlayerInput(event.target.value)}
                   placeholder="Enter player name"
                 />
+                <select
+                  className="app-select"
+                  onChange={(event) => updateOpenPlayPlayerCategory(event.target.value)}
+                  value={openPlay.playerCategory}
+                >
+                  {PLAYER_CATEGORIES.map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
+                </select>
                 <button className="gradient-btn add-btn" onClick={addOpenPlayPlayer} type="button">
                   Add
                 </button>
+              </div>
+
+              <div className="section-inline-note">
+                {openPlay.mode === 'beginner'
+                  ? 'Beginner open play pulls only Beginner players.'
+                  : `${openPlay.selectedCategory} players are grouped together for competitive open play.`}
               </div>
 
               <div className="player-stack">
@@ -1772,8 +2005,29 @@ function App() {
                   <div className="player-row" key={player.id}>
                     <div className="player-left">
                       <span className="number-pill">{index + 1}</span>
-                      <span>{player.name}</span>
+                      <div className="player-meta">
+                        <span>{player.name}</span>
+                        <span
+                          className={`player-category-badge category-${player.category.toLowerCase()}`}
+                        >
+                          {player.category}
+                        </span>
+                      </div>
                     </div>
+                    <div className="player-row-actions">
+                      <select
+                        className="inline-select"
+                        onChange={(event) =>
+                          changeOpenPlayPlayerCategory(player.id, event.target.value)
+                        }
+                        value={player.category}
+                      >
+                        {PLAYER_CATEGORIES.map((category) => (
+                          <option key={category} value={category}>
+                            {category}
+                          </option>
+                        ))}
+                      </select>
                     <button
                       className="delete-btn"
                       onClick={() => removeOpenPlayPlayer(player.id)}
@@ -1781,6 +2035,7 @@ function App() {
                     >
                       Delete
                     </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1798,7 +2053,9 @@ function App() {
               <div className="glass-card">
                 <div className="section-header with-badge">
                   <span>Active Courts</span>
-                  <span className="count-badge">Latest Round {openPlay.currentRound}</span>
+                  <span className="count-badge">
+                    Latest Round {openPlay.currentRound}
+                  </span>
                 </div>
 
                 <div className="court-grid">
@@ -1949,6 +2206,17 @@ function App() {
                   onChange={(event) => updateTournamentPlayerInput(event.target.value)}
                   placeholder="Enter player name"
                 />
+                <select
+                  className="app-select"
+                  onChange={(event) => updateTournamentPlayerCategory(event.target.value)}
+                  value={tournament.playerCategory}
+                >
+                  {PLAYER_CATEGORIES.map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
+                </select>
                 <button className="gradient-btn add-btn" onClick={addTournamentPlayer} type="button">
                   Add
                 </button>
@@ -1959,8 +2227,29 @@ function App() {
                   <div className="player-row" key={player.id}>
                     <div className="player-left">
                       <span className="number-pill">{index + 1}</span>
-                      <span>{player.name}</span>
+                      <div className="player-meta">
+                        <span>{player.name}</span>
+                        <span
+                          className={`player-category-badge category-${player.category.toLowerCase()}`}
+                        >
+                          {player.category}
+                        </span>
+                      </div>
                     </div>
+                    <div className="player-row-actions">
+                      <select
+                        className="inline-select"
+                        onChange={(event) =>
+                          changeTournamentPlayerCategory(player.id, event.target.value)
+                        }
+                        value={player.category}
+                      >
+                        {PLAYER_CATEGORIES.map((category) => (
+                          <option key={category} value={category}>
+                            {category}
+                          </option>
+                        ))}
+                      </select>
                     <button
                       className="delete-btn"
                       onClick={() => removeTournamentPlayer(player.id)}
@@ -1968,6 +2257,7 @@ function App() {
                     >
                       Delete
                     </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1990,12 +2280,26 @@ function App() {
 
             {tournament.teams.length > 0 && (
               <div className="glass-card">
-                <div className="section-header">Teams</div>
-                <div className="history-stack">
+                <div className="section-header">Partner View</div>
+                <div className="team-card-grid">
                   {tournament.teams.map((team, index) => (
-                    <div className="history-card" key={team.id}>
-                      <div className="history-title">Team {index + 1}</div>
-                      <div className="history-subtitle">{team.displayName}</div>
+                    <div className="team-pair-card" key={team.id}>
+                      <div className="team-pair-top">
+                        <div className="history-title">Team {index + 1}</div>
+                        <div className="count-badge small-badge">Locked Pair</div>
+                      </div>
+                      <div className="team-player-chip-row">
+                        {team.players.map((playerName, playerIndex) => (
+                          <div className="team-player-chip" key={`${team.id}-${playerName}`}>
+                            <div>{playerName}</div>
+                            <div
+                              className={`player-category-badge category-${team.playerCategories[playerIndex].toLowerCase()}`}
+                            >
+                              {team.playerCategories[playerIndex]}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -2022,6 +2326,14 @@ function App() {
 
             <div className="glass-card">
               <div className="round-pill">{tournament.currentLabel || 'Round 1'}</div>
+              <div className="bracket-summary-grid">
+                {tournamentBracketCards.map((card) => (
+                  <div className={`bracket-summary-card ${card.accent}`} key={card.label}>
+                    <div className="bracket-summary-label">{card.label}</div>
+                    <div className="bracket-summary-detail">{card.detail}</div>
+                  </div>
+                ))}
+              </div>
               <div className="history-stack">
                 {tournament.currentMatches.map((match) => (
                   <div className="tournament-match-card" key={match.id}>
