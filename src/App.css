@@ -303,6 +303,7 @@
   }
 
   .app-input,
+  .app-textarea,
   .app-select,
   .inline-select,
   .team-name-input {
@@ -311,11 +312,13 @@
   }
 
   .app-input::placeholder,
+  .app-textarea::placeholder,
   .team-name-input::placeholder {
     color: var(--muted-soft);
   }
 
   .app-input:focus,
+  .app-textarea:focus,
   .app-select:focus,
   .inline-select:focus,
   .team-name-input:focus {
@@ -330,6 +333,10 @@
     appearance: none;
   }
 
+  .app-textarea {
+    @apply min-h-[116px] resize-y;
+  }
+
   .team-name-input {
     @apply text-center font-bold;
   }
@@ -337,7 +344,8 @@
   .mode-toggle-row,
   .category-filter-row,
   .team-player-chip-row,
-  .player-row-actions {
+  .player-row-actions,
+  .player-action-buttons {
     @apply flex flex-wrap gap-[10px];
   }
 
@@ -361,6 +369,14 @@
 
   .section-inline-note {
     @apply mb-[10px] text-[0.92rem] leading-[1.45] text-dink-muted;
+  }
+
+  .player-summary-row {
+    @apply mb-[12px] flex flex-wrap gap-[10px];
+  }
+
+  .bulk-import-box {
+    @apply mb-[12px] rounded-[22px] border border-white/10 bg-white/[0.04] p-[12px];
   }
 
   .gradient-btn,
@@ -427,6 +443,10 @@
     @apply mt-5 gap-4;
   }
 
+  .compact-split {
+    @apply mt-0 gap-[10px];
+  }
+
   .tournament-match-card .button-row {
     @apply mt-3;
   }
@@ -449,12 +469,16 @@
     @apply flex items-center justify-between gap-3 px-4 py-[14px];
   }
 
+  .player-row-inactive {
+    opacity: 0.74;
+  }
+
   .player-left {
-    @apply flex items-center gap-3;
+    @apply flex min-w-0 flex-1 items-center gap-3;
   }
 
   .player-meta {
-    @apply flex flex-col gap-1;
+    @apply flex min-w-0 flex-1 flex-col gap-2;
   }
 
   .player-left span:last-child,
@@ -462,8 +486,29 @@
     @apply text-[1.25rem] font-extrabold;
   }
 
+  .player-name-input {
+    @apply w-full border-0 bg-transparent px-0 py-0 text-[1.1rem] font-extrabold text-dink-white outline-none;
+  }
+
+  .player-name-input::placeholder {
+    color: var(--muted-soft);
+  }
+
+  .player-badge-row {
+    @apply flex flex-wrap items-center gap-[8px];
+  }
+
   .player-row-actions {
-    @apply items-center justify-end;
+    @apply items-end justify-end;
+  }
+
+  .player-action-buttons {
+    @apply justify-end;
+  }
+
+  .player-action-buttons > * {
+    @apply flex-1;
+    min-width: 118px;
   }
 
   .inline-select {
@@ -472,6 +517,22 @@
 
   .player-category-badge {
     @apply inline-flex w-fit items-center rounded-full px-3 py-[5px] text-[0.76rem] font-black uppercase tracking-[0.08em];
+  }
+
+  .player-checkin-badge {
+    @apply inline-flex w-fit items-center rounded-full px-3 py-[5px] text-[0.74rem] font-black uppercase tracking-[0.08em];
+  }
+
+  .checked-in-badge {
+    background: rgba(145, 214, 206, 0.16);
+    color: #d8fff7;
+    border: 1px solid rgba(145, 214, 206, 0.24);
+  }
+
+  .checked-out-badge {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--muted);
+    border: 1px solid rgba(255, 255, 255, 0.12);
   }
 
   .category-beginner {
@@ -960,6 +1021,10 @@
 
   .player-row-actions {
     @apply w-full justify-start;
+  }
+
+  .player-action-buttons {
+    @apply w-full;
   }
 
   .inline-select,

@@ -19,7 +19,7 @@ function normalizePlayerCategory(category) {
 }
 
 function App() {
-  const sampleOpenPlayers = [
+  const seededOpenPlayers = [
     'Player 1',
     'Player 2',
     'Player 3',
@@ -30,7 +30,7 @@ function App() {
     'Player 8',
   ];
 
-  const sampleTournamentPlayers = [
+  const seededTournamentPlayers = [
     'Player 1',
     'Player 2',
     'Player 3',
@@ -44,14 +44,8 @@ function App() {
   const defaultOpenPlay = {
     courts: 2,
     playerInput: '',
-    players: sampleOpenPlayers.map((name, index) => ({
-      id: `open-player-${index + 1}`,
-      name,
-      category: 'Beginner',
-      playCount: 0,
-      waitCount: 0,
-      lastRoundPlayed: 0,
-    })),
+    importInput: '',
+    players: [],
     playerCategory: 'Beginner',
     mode: 'beginner',
     selectedCategory: 'Beginner',
@@ -69,12 +63,9 @@ function App() {
 
   const defaultTournament = {
     playerInput: '',
+    importInput: '',
     playerCategory: 'Beginner',
-    players: sampleTournamentPlayers.map((name, index) => ({
-      id: `tournament-player-${index + 1}`,
-      name,
-      category: 'Beginner',
-    })),
+    players: [],
     teams: [],
     roundRobinRounds: [],
     roundRobinIndex: 0,
@@ -128,6 +119,14 @@ function App() {
     );
   }
 
+  function hasSampleSeedNames(players, sampleNames) {
+    if (!Array.isArray(players) || players.length !== sampleNames.length) {
+      return false;
+    }
+
+    return players.every((player, index) => player?.name === sampleNames[index]);
+  }
+
   function sanitizeOpenPlayState(savedOpenPlay) {
     if (!savedOpenPlay) {
       return defaultOpenPlay;
@@ -135,6 +134,7 @@ function App() {
 
     const normalizedOpenPlay = {
       ...savedOpenPlay,
+      importInput: savedOpenPlay.importInput || '',
       playerCategory: normalizePlayerCategory(savedOpenPlay.playerCategory),
       mode: savedOpenPlay.mode || 'beginner',
       selectedCategory: normalizePlayerCategory(savedOpenPlay.selectedCategory),
@@ -145,24 +145,23 @@ function App() {
       players: (savedOpenPlay.players || []).map((player) => ({
         ...player,
         category: normalizePlayerCategory(player.category),
+        checkedIn:
+          typeof player.checkedIn === 'boolean' ? player.checkedIn : true,
       })),
     };
 
-    if (!hasLegacySeedNames(savedOpenPlay.players)) {
+    if (
+      !hasLegacySeedNames(savedOpenPlay.players) &&
+      !hasSampleSeedNames(savedOpenPlay.players, seededOpenPlayers)
+    ) {
       return normalizedOpenPlay;
     }
 
     return {
       ...normalizedOpenPlay,
       playerInput: '',
-      players: sampleOpenPlayers.map((name, index) => ({
-        id: savedOpenPlay.players[index]?.id || `open-player-${index + 1}`,
-        name,
-        category: 'Beginner',
-        playCount: savedOpenPlay.players[index]?.playCount || 0,
-        waitCount: savedOpenPlay.players[index]?.waitCount || 0,
-        lastRoundPlayed: savedOpenPlay.players[index]?.lastRoundPlayed || 0,
-      })),
+      importInput: savedOpenPlay.importInput || '',
+      players: [],
     };
   }
 
@@ -171,9 +170,13 @@ function App() {
       return defaultTournament;
     }
 
-    if (!hasLegacySeedNames(savedTournament.players)) {
+    if (
+      !hasLegacySeedNames(savedTournament.players) &&
+      !hasSampleSeedNames(savedTournament.players, seededTournamentPlayers)
+    ) {
       return {
         ...savedTournament,
+        importInput: savedTournament.importInput || '',
         playerCategory: normalizePlayerCategory(savedTournament.playerCategory),
         players: (savedTournament.players || []).map((player) => ({
           ...player,
@@ -185,13 +188,9 @@ function App() {
     return {
       ...savedTournament,
       playerInput: '',
+      importInput: savedTournament.importInput || '',
       playerCategory: normalizePlayerCategory(savedTournament.playerCategory),
-      players: sampleTournamentPlayers.map((name, index) => ({
-        id:
-          savedTournament.players[index]?.id || `tournament-player-${index + 1}`,
-        name,
-        category: 'Beginner',
-      })),
+      players: [],
     };
   }
 
@@ -243,6 +242,26 @@ function App() {
 
   function createId(prefix) {
     return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+  }
+
+  function parseImportedPlayerNames(rawValue) {
+    return rawValue
+      .split(/\r?\n/)
+      .map((line) => line.replace(/\u00a0/g, ' ').trim())
+      .filter(Boolean)
+      .map((line) => line.replace(/^\d+\s*[\.\)-]?\s*/, '').trim())
+      .map((line) => {
+        const cells = line
+          .split('\t')
+          .map((cell) => cell.trim())
+          .filter(Boolean);
+
+        return (cells[0] || line).trim();
+      })
+      .filter(
+        (line) => !['name', 'player', 'player name'].includes(line.toLowerCase())
+      )
+      .filter(Boolean);
   }
 
   function shuffleArray(array) {
@@ -302,6 +321,13 @@ function App() {
     }));
   }
 
+  function updateOpenPlayImportInput(value) {
+    setOpenPlay((previous) => ({
+      ...previous,
+      importInput: value,
+    }));
+  }
+
   function updateOpenPlayPlayerCategory(value) {
     setOpenPlay((previous) => ({
       ...previous,
@@ -335,10 +361,81 @@ function App() {
     }));
   }
 
+  function changeOpenPlayPlayerName(playerId, value) {
+    setOpenPlay((previous) => ({
+      ...previous,
+      players: previous.players.map((player) =>
+        player.id === playerId ? { ...player, name: value } : player
+      ),
+    }));
+  }
+
+  function commitOpenPlayPlayerName(playerId, fallbackIndex) {
+    setOpenPlay((previous) => {
+      const selectedPlayer = previous.players.find((player) => player.id === playerId);
+
+      if (!selectedPlayer) {
+        return previous;
+      }
+
+      const nextName = selectedPlayer.name.trim() || `Player ${fallbackIndex + 1}`;
+      const hasDuplicateName = previous.players.some(
+        (player) =>
+          player.id !== playerId &&
+          player.name.trim().toLowerCase() === nextName.toLowerCase()
+      );
+
+      if (hasDuplicateName) {
+        return {
+          ...previous,
+          error: 'Player names need to stay unique in Open Play.',
+          players: previous.players.map((player) =>
+            player.id === playerId ? { ...player, name: `Player ${fallbackIndex + 1}` } : player
+          ),
+        };
+      }
+
+      return {
+        ...previous,
+        players: previous.players.map((player) =>
+          player.id === playerId ? { ...player, name: nextName } : player
+        ),
+        error: '',
+      };
+    });
+  }
+
+  function toggleOpenPlayPlayerCheckIn(playerId) {
+    setOpenPlay((previous) => ({
+      ...previous,
+      players: previous.players.map((player) =>
+        player.id === playerId
+          ? { ...player, checkedIn: !player.checkedIn }
+          : player
+      ),
+      error: '',
+    }));
+  }
+
+  function setAllOpenPlayPlayerCheckInStatus(checkedIn) {
+    setOpenPlay((previous) => ({
+      ...previous,
+      players: previous.players.map((player) => ({ ...player, checkedIn })),
+      error: '',
+    }));
+  }
+
   function updateTournamentPlayerInput(value) {
     setTournament((previous) => ({
       ...previous,
       playerInput: value,
+    }));
+  }
+
+  function updateTournamentImportInput(value) {
+    setTournament((previous) => ({
+      ...previous,
+      importInput: value,
     }));
   }
 
@@ -350,20 +447,105 @@ function App() {
   }
 
   function changeTournamentPlayerCategory(playerId, category) {
+    const normalizedCategory = normalizePlayerCategory(category);
+
     setTournament((previous) => ({
       ...previous,
       players: previous.players.map((player) =>
         player.id === playerId
-          ? { ...player, category: normalizePlayerCategory(category) }
+          ? { ...player, category: normalizedCategory }
           : player
       ),
+      teams: previous.teams.map((team) => {
+        if (!team.playerIds.includes(playerId)) {
+          return team;
+        }
+
+        return {
+          ...team,
+          playerCategories: team.playerIds.map((id, index) =>
+            id === playerId ? normalizedCategory : team.playerCategories[index]
+          ),
+        };
+      }),
     }));
+  }
+
+  function changeTournamentPlayerName(playerId, value) {
+    setTournament((previous) => ({
+      ...previous,
+      players: previous.players.map((player) =>
+        player.id === playerId ? { ...player, name: value } : player
+      ),
+    }));
+  }
+
+  function commitTournamentPlayerName(playerId, fallbackIndex) {
+    setTournament((previous) => {
+      const selectedPlayer = previous.players.find((player) => player.id === playerId);
+
+      if (!selectedPlayer) {
+        return previous;
+      }
+
+      const nextName = selectedPlayer.name.trim() || `Player ${fallbackIndex + 1}`;
+      const hasDuplicateName = previous.players.some(
+        (player) =>
+          player.id !== playerId &&
+          player.name.trim().toLowerCase() === nextName.toLowerCase()
+      );
+
+      if (hasDuplicateName) {
+        return {
+          ...previous,
+          error: 'Tournament player names need to stay unique.',
+          players: previous.players.map((player) =>
+            player.id === playerId ? { ...player, name: `Player ${fallbackIndex + 1}` } : player
+          ),
+        };
+      }
+
+      return {
+        ...previous,
+        players: previous.players.map((player) =>
+          player.id === playerId ? { ...player, name: nextName } : player
+        ),
+        teams: previous.teams.map((team) => {
+          if (!team.playerIds.includes(playerId)) {
+            return team;
+          }
+
+          const nextTeamPlayers = team.playerIds.map((id, index) =>
+            id === playerId ? nextName : team.players[index]
+          );
+
+          return {
+            ...team,
+            players: nextTeamPlayers,
+            displayName: nextTeamPlayers.join(' & '),
+          };
+        }),
+        error: '',
+      };
+    });
   }
 
   function addOpenPlayPlayer() {
     const trimmedName = openPlay.playerInput.trim();
 
     if (!trimmedName) {
+      return;
+    }
+
+    if (
+      openPlay.players.some(
+        (player) => player.name.trim().toLowerCase() === trimmedName.toLowerCase()
+      )
+    ) {
+      setOpenPlay((previous) => ({
+        ...previous,
+        error: 'That player name is already in Open Play.',
+      }));
       return;
     }
 
@@ -376,6 +558,7 @@ function App() {
           id: createId('open-player'),
           name: trimmedName,
           category: previous.playerCategory,
+          checkedIn: true,
           playCount: 0,
           waitCount: 0,
           lastRoundPlayed: 0,
@@ -383,6 +566,57 @@ function App() {
       ],
       error: '',
     }));
+  }
+
+  function importOpenPlayPlayers() {
+    const importedNames = parseImportedPlayerNames(openPlay.importInput);
+
+    if (importedNames.length === 0) {
+      setOpenPlay((previous) => ({
+        ...previous,
+        error: 'Paste at least one player name to import from Reclub.',
+      }));
+      return;
+    }
+
+    setOpenPlay((previous) => {
+      const shouldReplaceSamples = hasSampleSeedNames(previous.players, seededOpenPlayers);
+      const basePlayers = shouldReplaceSamples ? [] : previous.players;
+      const knownNames = new Set(
+        basePlayers.map((player) => player.name.trim().toLowerCase())
+      );
+      const nextPlayers = [...basePlayers];
+
+      importedNames.forEach((name) => {
+        const normalizedName = name.trim();
+        const key = normalizedName.toLowerCase();
+
+        if (!normalizedName || knownNames.has(key)) {
+          return;
+        }
+
+        knownNames.add(key);
+        nextPlayers.push({
+          id: createId('open-player'),
+          name: normalizedName,
+          category: previous.playerCategory,
+          checkedIn: true,
+          playCount: 0,
+          waitCount: 0,
+          lastRoundPlayed: 0,
+        });
+      });
+
+      return {
+        ...previous,
+        importInput: '',
+        players: nextPlayers,
+        error:
+          nextPlayers.length === basePlayers.length
+            ? 'No new players were added from the pasted list.'
+            : '',
+      };
+    });
   }
 
   function removeOpenPlayPlayer(playerId) {
@@ -399,6 +633,18 @@ function App() {
       return;
     }
 
+    if (
+      tournament.players.some(
+        (player) => player.name.trim().toLowerCase() === trimmedName.toLowerCase()
+      )
+    ) {
+      setTournament((previous) => ({
+        ...previous,
+        error: 'That player name is already in Tournament.',
+      }));
+      return;
+    }
+
     setTournament((previous) => ({
       ...previous,
       playerInput: '',
@@ -412,6 +658,56 @@ function App() {
       ],
       error: '',
     }));
+  }
+
+  function importTournamentPlayers() {
+    const importedNames = parseImportedPlayerNames(tournament.importInput);
+
+    if (importedNames.length === 0) {
+      setTournament((previous) => ({
+        ...previous,
+        error: 'Paste at least one player name to import from Reclub.',
+      }));
+      return;
+    }
+
+    setTournament((previous) => {
+      const shouldReplaceSamples = hasSampleSeedNames(
+        previous.players,
+        seededTournamentPlayers
+      );
+      const basePlayers = shouldReplaceSamples ? [] : previous.players;
+      const knownNames = new Set(
+        basePlayers.map((player) => player.name.trim().toLowerCase())
+      );
+      const nextPlayers = [...basePlayers];
+
+      importedNames.forEach((name) => {
+        const normalizedName = name.trim();
+        const key = normalizedName.toLowerCase();
+
+        if (!normalizedName || knownNames.has(key)) {
+          return;
+        }
+
+        knownNames.add(key);
+        nextPlayers.push({
+          id: createId('tournament-player'),
+          name: normalizedName,
+          category: previous.playerCategory,
+        });
+      });
+
+      return {
+        ...previous,
+        importInput: '',
+        players: nextPlayers,
+        error:
+          nextPlayers.length === basePlayers.length
+            ? 'No new players were added from the pasted list.'
+            : '',
+      };
+    });
   }
 
   function removeTournamentPlayer(playerId) {
@@ -432,11 +728,13 @@ function App() {
   }
 
   function getEligibleOpenPlayPlayers(players = openPlay.players) {
+    const checkedInPlayers = players.filter((player) => player.checkedIn);
+
     if (openPlay.mode === 'beginner') {
-      return players.filter((player) => player.category === 'Beginner');
+      return checkedInPlayers.filter((player) => player.category === 'Beginner');
     }
 
-    return players.filter(
+    return checkedInPlayers.filter(
       (player) => player.category === openPlay.selectedCategory
     );
   }
@@ -704,8 +1002,8 @@ function App() {
         ...previous,
         error:
           openPlay.mode === 'beginner'
-            ? 'Add at least 4 beginner players to create open play matches.'
-            : `Add at least 4 ${openPlay.selectedCategory.toLowerCase()} players to create competitive matches.`,
+            ? 'Check in at least 4 beginner players to create open play matches.'
+            : `Check in at least 4 ${openPlay.selectedCategory.toLowerCase()} players to create competitive matches.`,
       }));
       return;
     }
@@ -720,8 +1018,8 @@ function App() {
         ...previous,
         error:
           openPlay.mode === 'beginner'
-            ? 'You need enough beginner players to fill at least one doubles court.'
-            : `You need enough ${openPlay.selectedCategory.toLowerCase()} players to fill at least one doubles court.`,
+            ? 'You need enough checked-in beginner players to fill at least one doubles court.'
+            : `You need enough checked-in ${openPlay.selectedCategory.toLowerCase()} players to fill at least one doubles court.`,
       }));
       return;
     }
@@ -1724,6 +2022,11 @@ function App() {
     [tournament.roundRobinRounds, tournament.teams]
   );
 
+  const checkedInOpenPlayPlayers = useMemo(
+    () => openPlay.players.filter((player) => player.checkedIn),
+    [openPlay.players]
+  );
+
   const eligibleOpenPlayPlayers = useMemo(
     () => getEligibleOpenPlayPlayers(),
     [openPlay.players, openPlay.mode, openPlay.selectedCategory]
@@ -1967,7 +2270,7 @@ function App() {
               <div className="section-header with-badge">
                 <span>Players</span>
                 <span className="count-badge">
-                  {eligibleOpenPlayPlayers.length} eligible
+                  {eligibleOpenPlayPlayers.length} in queue
                 </span>
               </div>
 
@@ -1994,24 +2297,93 @@ function App() {
                 </button>
               </div>
 
+              <div className="button-row split-buttons compact-split">
+                <button
+                  className="soft-btn"
+                  onClick={() => setAllOpenPlayPlayerCheckInStatus(true)}
+                  type="button"
+                >
+                  Check In All
+                </button>
+                <button
+                  className="soft-btn"
+                  onClick={() => setAllOpenPlayPlayerCheckInStatus(false)}
+                  type="button"
+                >
+                  Clear Check-In
+                </button>
+              </div>
+
+              <div className="player-summary-row">
+                <span className="status-pill">{checkedInOpenPlayPlayers.length} checked in</span>
+                <span className="status-pill">{eligibleOpenPlayPlayers.length} eligible now</span>
+              </div>
+
               <div className="section-inline-note">
                 {openPlay.mode === 'beginner'
-                  ? 'Beginner open play pulls only Beginner players.'
-                  : `${openPlay.selectedCategory} players are grouped together for competitive open play.`}
+                  ? 'Only checked-in Beginner players join the queue.'
+                  : `Only checked-in ${openPlay.selectedCategory} players join the competitive queue.`}
+              </div>
+
+              <div className="bulk-import-box">
+                <textarea
+                  className="app-textarea"
+                  onChange={(event) => updateOpenPlayImportInput(event.target.value)}
+                  placeholder="Paste player names from Reclub here, one per line"
+                  rows="4"
+                  value={openPlay.importInput}
+                />
+                <div className="button-row split-buttons compact-split">
+                  <button className="soft-btn" onClick={importOpenPlayPlayers} type="button">
+                    Import from Reclub
+                  </button>
+                  <button
+                    className="soft-btn"
+                    onClick={() => updateOpenPlayImportInput('')}
+                    type="button"
+                  >
+                    Clear Paste
+                  </button>
+                </div>
+                <div className="section-inline-note">
+                  Imported names use the selected category above and are checked in
+                  automatically.
+                </div>
               </div>
 
               <div className="player-stack">
                 {openPlay.players.map((player, index) => (
-                  <div className="player-row" key={player.id}>
+                  <div
+                    className={`player-row ${
+                      player.checkedIn ? '' : 'player-row-inactive'
+                    }`}
+                    key={player.id}
+                  >
                     <div className="player-left">
                       <span className="number-pill">{index + 1}</span>
                       <div className="player-meta">
-                        <span>{player.name}</span>
-                        <span
-                          className={`player-category-badge category-${player.category.toLowerCase()}`}
-                        >
-                          {player.category}
-                        </span>
+                        <input
+                          className="player-name-input"
+                          onBlur={() => commitOpenPlayPlayerName(player.id, index)}
+                          onChange={(event) =>
+                            changeOpenPlayPlayerName(player.id, event.target.value)
+                          }
+                          value={player.name}
+                        />
+                        <div className="player-badge-row">
+                          <span
+                            className={`player-category-badge category-${player.category.toLowerCase()}`}
+                          >
+                            {player.category}
+                          </span>
+                          <span
+                            className={`player-checkin-badge ${
+                              player.checkedIn ? 'checked-in-badge' : 'checked-out-badge'
+                            }`}
+                          >
+                            {player.checkedIn ? 'Checked In' : 'Checked Out'}
+                          </span>
+                        </div>
                       </div>
                     </div>
                     <div className="player-row-actions">
@@ -2028,13 +2400,22 @@ function App() {
                           </option>
                         ))}
                       </select>
-                    <button
-                      className="delete-btn"
-                      onClick={() => removeOpenPlayPlayer(player.id)}
-                      type="button"
-                    >
-                      Delete
-                    </button>
+                      <div className="player-action-buttons">
+                        <button
+                          className={player.checkedIn ? 'soft-btn' : 'gradient-btn'}
+                          onClick={() => toggleOpenPlayPlayerCheckIn(player.id)}
+                          type="button"
+                        >
+                          {player.checkedIn ? 'Check Out' : 'Check In'}
+                        </button>
+                        <button
+                          className="delete-btn"
+                          onClick={() => removeOpenPlayPlayer(player.id)}
+                          type="button"
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -2222,18 +2603,53 @@ function App() {
                 </button>
               </div>
 
+              <div className="bulk-import-box">
+                <textarea
+                  className="app-textarea"
+                  onChange={(event) => updateTournamentImportInput(event.target.value)}
+                  placeholder="Paste tournament player names from Reclub here, one per line"
+                  rows="4"
+                  value={tournament.importInput}
+                />
+                <div className="button-row split-buttons compact-split">
+                  <button className="soft-btn" onClick={importTournamentPlayers} type="button">
+                    Import from Reclub
+                  </button>
+                  <button
+                    className="soft-btn"
+                    onClick={() => updateTournamentImportInput('')}
+                    type="button"
+                  >
+                    Clear Paste
+                  </button>
+                </div>
+                <div className="section-inline-note">
+                  Each pasted line becomes one player. Numbering from copied lists is
+                  cleaned automatically.
+                </div>
+              </div>
+
               <div className="player-stack">
                 {tournament.players.map((player, index) => (
                   <div className="player-row" key={player.id}>
                     <div className="player-left">
                       <span className="number-pill">{index + 1}</span>
                       <div className="player-meta">
-                        <span>{player.name}</span>
-                        <span
-                          className={`player-category-badge category-${player.category.toLowerCase()}`}
-                        >
-                          {player.category}
-                        </span>
+                        <input
+                          className="player-name-input"
+                          onBlur={() => commitTournamentPlayerName(player.id, index)}
+                          onChange={(event) =>
+                            changeTournamentPlayerName(player.id, event.target.value)
+                          }
+                          value={player.name}
+                        />
+                        <div className="player-badge-row">
+                          <span
+                            className={`player-category-badge category-${player.category.toLowerCase()}`}
+                          >
+                            {player.category}
+                          </span>
+                        </div>
                       </div>
                     </div>
                     <div className="player-row-actions">
